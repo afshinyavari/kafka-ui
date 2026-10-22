@@ -32,6 +32,11 @@ jobs:
           java-version: '21'
           cache: maven
 
+      # The pom keeps a -SNAPSHOT version; a release tag v1.2.3 builds as 1.2.3
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: ./mvnw -B -q org.codehaus.mojo:versions-maven-plugin:2.23.0:set -DnewVersion="${GITHUB_REF_NAME#v}" -DgenerateBackupPoms=false
+
       - name: Build and test
         run: ./mvnw -B verify
 

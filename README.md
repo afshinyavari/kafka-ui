@@ -134,6 +134,9 @@ Icons are inline SVGs (Lucide shapes) in `src/main/resources/templates/icons/`, 
 | tag `v1.2.3` | `1.2.3`, `latest`, `sha-<short>` |
 | pull request | none (build and test only) |
 
+Releasing: set `appVersion` in `deploy/helm/kafka-ui/Chart.yaml` to `1.2.3`, then push tag `v1.2.3`. The pom stays
+on the next `-SNAPSHOT`; the tag build sets the Maven version to `1.2.3` before building.
+
 Setup in the GitHub repository (Settings → Secrets and variables → Actions): secret `DOCKERHUB_TOKEN`, a Docker
 Hub access token with Read & Write (`gh secret set DOCKERHUB_TOKEN`).
 
