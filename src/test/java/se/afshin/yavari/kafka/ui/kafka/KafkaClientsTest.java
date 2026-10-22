@@ -47,7 +47,7 @@ class KafkaClientsTest {
         final List<Admin> closed = new CopyOnWriteArrayList<>();
 
         TestClients(KafkaUiConfig cfg, TlsMaterialHolder holder) {
-            super(cfg, holder, p -> p);
+            super(cfg, holder, p -> p, Runnable::run);
         }
 
         @Override
@@ -115,6 +115,13 @@ class KafkaClientsTest {
         Admin a = clients.admin(expired);
         assertThat(clients.admin(expired)).isNotSameAs(a);
         assertThat(clients.closed).contains(a);
+    }
+
+    @Test
+    void entryExpiringWithinSkewIsNotReused() {
+        var soon = new Credentials.Bearer("t1", "alice", Instant.now().plusSeconds(20));
+        Admin a = clients.admin(soon);
+        assertThat(clients.admin(soon)).isNotSameAs(a);
     }
 
     @Test

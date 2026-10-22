@@ -26,7 +26,7 @@ class KafkaClientsBrokerTest {
     void adminProducerAndConsumerReachTheBroker() throws Exception {
         var creds = new Credentials.Mtls();
         clients.admin(creds).createTopics(List.of(new NewTopic("t3-wiring", 1, (short) 1))).all().get();
-        try (var producer = clients.producer(creds)) {
+        try (var producer = clients.newProducer(creds)) {
             producer.send(new ProducerRecord<>("t3-wiring", "k".getBytes(), "v".getBytes())).get();
         }
         try (var consumer = clients.newConsumer(creds)) {

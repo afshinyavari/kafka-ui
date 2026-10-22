@@ -3,12 +3,19 @@ package se.afshin.yavari.kafka.ui.kafka;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Scheduler;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Properties;
+import java.util.concurrent.Executor;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -23,8 +30,9 @@ public class KafkaClients {
 
     private static final Logger LOG = Logger.getLogger(KafkaClients.class);
     private static final Duration IDLE = Duration.ofMinutes(5);
+    private static final Duration EXPIRY_SKEW = Duration.ofSeconds(30);
 
-    record Key(String scope, int tokenHash, long tlsGeneration) {}
+    record Key(String scope, String tokenHash, long tlsGeneration) {}
 
     record Entry(Admin admin, Instant expiresAt) {}
 
@@ -48,11 +56,17 @@ public class KafkaClients {
 
     @Inject
     public KafkaClients(KafkaUiConfig config, TlsMaterialHolder tls, KafkaPropertiesCustomizer customizer) {
+        this(config, tls, customizer, Infrastructure.getDefaultWorkerPool());
+    }
+
+    /** @param closeExecutor runs the closing of evicted clients */
+    KafkaClients(KafkaUiConfig config, TlsMaterialHolder tls, KafkaPropertiesCustomizer customizer, Executor closeExecutor) {
         this.config = config;
         this.tls = tls;
         this.customizer = customizer;
         this.admins = Caffeine.newBuilder()
-                .executor(Runnable::run)
+                .executor(closeExecutor)
+                .scheduler(Scheduler.systemScheduler())
                 .expireAfter(new Expiry<CacheRequest, Entry>() {
                     @Override
                     public long expireAfterCreate(CacheRequest k, Entry v, long now) {
@@ -89,7 +103,8 @@ public class KafkaClients {
                 KafkaClientProperties.forConsumer(config, credentials, tls.current())));
     }
 
-    public KafkaProducer<byte[], byte[]> producer(Credentials credentials) {
+    /** Caller closes. */
+    public KafkaProducer<byte[], byte[]> newProducer(Credentials credentials) {
         return new KafkaProducer<>(customizer.customize(
                 KafkaClientProperties.forProducer(config, credentials, tls.current())));
     }
@@ -100,8 +115,17 @@ public class KafkaClients {
     }
 
     private Key key(Credentials credentials) {
-        int tokenHash = credentials instanceof Credentials.Bearer b ? b.token().hashCode() : 0;
+        String tokenHash = credentials instanceof Credentials.Bearer b ? sha256(b.token()) : "";
         return new Key(credentials.cacheScope(), tokenHash, tls.generation());
+    }
+
+    private static String sha256(String token) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static Instant expiry(Credentials credentials) {
@@ -113,7 +137,7 @@ public class KafkaClients {
         if (e.expiresAt() == null) {
             return idle;
         }
-        long untilExpiry = Duration.between(Instant.now(), e.expiresAt()).toNanos();
+        long untilExpiry = Duration.between(Instant.now(), e.expiresAt()).minus(EXPIRY_SKEW).toNanos();
         return Math.max(0, Math.min(idle, untilExpiry));
     }
 
