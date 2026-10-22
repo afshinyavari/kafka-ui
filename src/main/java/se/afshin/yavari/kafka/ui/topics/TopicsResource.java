@@ -74,7 +74,7 @@ public class TopicsResource {
     /** htmx gets the tab bar plus panel (so the active tab updates); otherwise the full page. */
     private TemplateInstance tab(String name, String tab) {
         var current = credentials.current();
-        var info = topics.describe(current, name);
+        var info = "settings".equals(tab) ? topics.describeWithSettings(current, name) : topics.describe(current, name);
         var groupRows = "consumers".equals(tab) ? groupService.forTopic(current, name) : List.<GroupRow>of();
         return isFragment() ? Templates.panel(name, tab, info, groupRows) : Templates.detail(name, tab, info, groupRows);
     }

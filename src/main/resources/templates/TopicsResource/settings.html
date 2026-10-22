@@ -1,3 +1,6 @@
+{#if info.settingsDenied}
+<div class="error" role="alert"><p>{info.settingsDenied}</p></div>
+{#else}
 <table>
   <thead><tr><th>Key</th><th>Value</th><th>Source</th></tr></thead>
   <tbody>
@@ -10,3 +13,4 @@
   {/for}
   </tbody>
 </table>
+{/if}

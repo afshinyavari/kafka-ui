@@ -19,6 +19,7 @@ import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.admin.ListOffsetsResult.ListOffsetsResultInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.AuthorizationException;
 import org.apache.kafka.common.Node;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
 import se.afshin.yavari.kafka.ui.kafka.KafkaErrors;
@@ -31,6 +32,7 @@ import se.afshin.yavari.kafka.ui.security.Credentials;
 public class TopicService {
 
     static final String MASKED = "******";
+    public static final String SETTINGS_DENIED = "You don't have permission to view this topic's settings.";
 
     @Inject KafkaClients clients;
 
@@ -72,7 +74,20 @@ public class TopicService {
         }
     }
 
+    /** Partitions and permissions only; needs Describe on the topic (a typical consumer grant). */
     public TopicInfo describe(Credentials credentials, String topic) {
+        return describe(credentials, topic, false);
+    }
+
+    /**
+     * Also loads the topic configuration (DescribeConfigs). When Kafka denies that, the info carries
+     * {@link #SETTINGS_DENIED} instead of failing.
+     */
+    public TopicInfo describeWithSettings(Credentials credentials, String topic) {
+        return describe(credentials, topic, true);
+    }
+
+    private TopicInfo describe(Credentials credentials, String topic, boolean withSettings) {
         String what = "topic " + topic;
         try {
             Admin admin = clients.admin(credentials);
@@ -88,17 +103,34 @@ public class TopicService {
                                 p.replicas().stream().map(Node::id).toList(),
                                 p.isr().stream().map(Node::id).toList(), starts.get(tp), ends.get(tp));
                     }).toList();
-            var resource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
             Map<String, ConfigRow> configs = new TreeMap<>();
-            for (ConfigEntry e : admin.describeConfigs(List.of(resource)).all().get().get(resource).entries()) {
-                String value = e.isSensitive() ? MASKED : e.value();
-                configs.put(e.name(), new ConfigRow(e.name(), value,
-                        e.source() == ConfigEntry.ConfigSource.DYNAMIC_TOPIC_CONFIG));
+            String denied = null;
+            if (withSettings) {
+                try {
+                    configs = configs(admin, topic);
+                } catch (ExecutionException e) {
+                    if (!(e.getCause() instanceof AuthorizationException)) {
+                        throw e;
+                    }
+                    denied = SETTINGS_DENIED;
+                }
             }
-            return new TopicInfo(topic, partitions, configs, Permissions.canProduce(d));
+            return new TopicInfo(topic, partitions, configs, Permissions.canProduce(d), denied);
         } catch (Exception e) {
             throw wrap(e, what);
         }
+    }
+
+    private static Map<String, ConfigRow> configs(Admin admin, String topic)
+            throws ExecutionException, InterruptedException {
+        var resource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
+        Map<String, ConfigRow> configs = new TreeMap<>();
+        for (ConfigEntry e : admin.describeConfigs(List.of(resource)).all().get().get(resource).entries()) {
+            String value = e.isSensitive() ? MASKED : e.value();
+            configs.put(e.name(), new ConfigRow(e.name(), value,
+                    e.source() == ConfigEntry.ConfigSource.DYNAMIC_TOPIC_CONFIG));
+        }
+        return configs;
     }
 
     private static Map<TopicPartition, Long> offsets(Admin admin, Iterable<TopicDescription> topics, OffsetSpec spec)
