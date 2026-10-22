@@ -33,13 +33,6 @@ public class UserErrorMapper implements ExceptionMapper<Throwable> {
         if (t instanceof WebApplicationException wae) {
             return wae.getResponse();
         }
-        if (t instanceof io.quarkus.security.ForbiddenException) {
-            return Response.status(403).build();
-        }
-        if (t instanceof io.quarkus.security.UnauthorizedException
-                || t instanceof io.quarkus.security.AuthenticationFailedException) {
-            return Response.status(401).build();
-        }
         UserError userError;
         if (t instanceof UserErrorException e) {
             userError = e.error();

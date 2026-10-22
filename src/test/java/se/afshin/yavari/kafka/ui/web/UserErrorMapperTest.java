@@ -31,15 +31,16 @@ class UserErrorMapperTest {
                 .body(not(containsString("secret-detail")));
     }
 
-    @Test void unauthorizedIsNot500() {
+    // Security tests: verify Quarkus' own specific mappers win over ExceptionMapper<Throwable> (no 500).
+    @Test void unauthorizedIsHandledByQuarkusNot500() {
         given().redirects().follow(false).get("/test-errors/unauthorized").then().statusCode(401);
     }
 
-    @Test void authenticationFailedIsNot500() {
+    @Test void authenticationFailedIsHandledByQuarkusNot500() {
         given().redirects().follow(false).get("/test-errors/authfailed").then().statusCode(401);
     }
 
-    @Test void forbiddenIs403() {
+    @Test void forbiddenIsHandledByQuarkus403() {
         given().get("/test-errors/forbidden").then().statusCode(403);
     }
 
