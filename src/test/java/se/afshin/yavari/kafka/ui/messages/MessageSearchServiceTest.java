@@ -1,6 +1,7 @@
 package se.afshin.yavari.kafka.ui.messages;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -286,6 +287,44 @@ class MessageSearchServiceTest {
         assertThat(done.stopReason()).isEqualTo("no progress from Kafka for 1 s");
         assertThat(done.scanned()).isZero();
         assertThat(MessageSearchService.IDLE_TIMEOUT).isEqualTo(Duration.ofSeconds(30));
+    }
+
+    @Test
+    void slowBatchIsNotMistakenForAStall() throws Exception {
+        String topic = topic(1);
+        produceMany(topic, 5);
+        // processing one batch takes longer than the idle bound; a healthy scan must still complete
+        var slowDecoder = new MessageDecoder(
+                (c, kind, id) -> new Lookup.NotFound(),
+                (c, r) -> {
+                    throw new IllegalStateException("no references expected");
+                }) {
+            @Override
+            public se.afshin.yavari.kafka.ui.serde.Decoded decodeAs(Credentials credentials, byte[] data, org.apache.kafka.common.header.Headers headers,
+                    boolean key, se.afshin.yavari.kafka.ui.serde.Format as) {
+                try {
+                    Thread.sleep(700);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.decodeAs(credentials, data, headers, key, as);
+            }
+        };
+        var service = new MessageSearchService(clients::newConsumer, slowDecoder, limits(100_000, 500),
+                Duration.ofSeconds(1));
+        var done = done(run(service, lastHour(topic, null, null)));
+        assertThat(done.stopReason()).isEqualTo("end of range");
+        assertThat(done.scanned()).isEqualTo(5);
+    }
+
+    @Test
+    void unknownPartitionFailsWithUserError() throws Exception {
+        String topic = topic(1);
+        var request = new SearchRequest(topic, Set.of(7), Instant.now().minus(Duration.ofHours(1)),
+                Instant.now().plusSeconds(60), Optional.empty(), Optional.empty(), Optional.empty());
+        assertThatThrownBy(() -> run(service(), request))
+                .isInstanceOf(se.afshin.yavari.kafka.ui.kafka.UserErrorException.class)
+                .hasMessageContaining("Partition 7 does not exist in topic " + topic + ".");
     }
 
     @Test

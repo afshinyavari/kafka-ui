@@ -18,7 +18,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.errors.WakeupException;
 import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
@@ -34,7 +33,7 @@ import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
 public class MessageSearchService {
 
     private static final Duration POLL = Duration.ofMillis(200);
-    private static final Duration METADATA_TIMEOUT = Duration.ofSeconds(15);
+    private static final Duration METADATA_TIMEOUT = TopicPartitions.METADATA_TIMEOUT;
     private static final Duration FETCH_TIMEOUT = Duration.ofSeconds(5);
     private static final int PROGRESS_EVERY = 1000;
     /** A search that receives nothing from Kafka for this long gives up. */
@@ -78,8 +77,8 @@ public class MessageSearchService {
             Scan scan = new Scan(credentials, request, emitter, cancelled);
             String reason = scan.run(consumer);
             if (!cancelled.isCancelled()) {
-                emitter.emit(new SearchEvent.Progress(scan.scanned, scan.matched, scan.timeouts));
-                emitter.emit(new SearchEvent.Done(scan.scanned, scan.matched, scan.timeouts, reason));
+                emitter.emit(scan.tally.progress());
+                emitter.emit(new SearchEvent.Done(scan.tally.scanned, scan.tally.matched, scan.tally.timeouts, reason));
                 emitter.complete();
             }
         } catch (WakeupException e) {
@@ -97,9 +96,7 @@ public class MessageSearchService {
         private final SearchRequest request;
         private final MultiEmitter<? super SearchEvent> emitter;
         private final Cancellation cancelled;
-        long scanned;
-        long matched;
-        long timeouts;
+        final Tally tally = new Tally();
 
         Scan(Credentials credentials, SearchRequest request, MultiEmitter<? super SearchEvent> emitter,
                 Cancellation cancelled) {
@@ -123,31 +120,32 @@ public class MessageSearchService {
                     return SearchEvent.noProgress(idleTimeout);
                 }
                 ConsumerRecords<byte[], byte[]> polled = consumer.poll(POLL);
-                if (!polled.isEmpty()) {
-                    lastProgress = System.nanoTime();
-                }
                 for (ConsumerRecord<byte[], byte[]> r : polled) {
                     TopicPartition tp = new TopicPartition(r.topic(), r.partition());
                     Long end = ends.get(tp);
                     if (end == null || r.offset() >= end) {
                         continue;
                     }
-                    if (scanned >= limits.maxScanned()) {
+                    if (tally.scanned >= limits.maxScanned()) {
                         return SearchEvent.scanLimit(limits.maxScanned());
                     }
-                    if (matched >= limits.maxMatches()) {
+                    if (tally.matched >= limits.maxMatches()) {
                         return SearchEvent.matchLimit(limits.maxMatches());
                     }
                     if (cancelled.isCancelled()) {
                         return SearchEvent.CANCELLED;
                     }
-                    scanned++;
+                    tally.scanned++;
                     if (!byTime || (r.timestamp() >= fromMs && r.timestamp() < toMs)) {
                         test(r);
                     }
-                    if (scanned % PROGRESS_EVERY == 0) {
-                        emitter.emit(new SearchEvent.Progress(scanned, matched, timeouts));
+                    if (tally.scanned % PROGRESS_EVERY == 0) {
+                        emitter.emit(tally.progress());
                     }
+                }
+                if (!polled.isEmpty()) {
+                    // idleness is measured from the end of a batch, so slow decoding is not mistaken for a stall
+                    lastProgress = System.nanoTime();
                 }
                 List<TopicPartition> finished = new ArrayList<>();
                 ends.forEach((tp, end) -> {
@@ -166,7 +164,7 @@ public class MessageSearchService {
 
         /** Assigns and seeks every partition with a non-empty range; returns the exclusive end offsets. */
         private Map<TopicPartition, Long> ranges(Consumer<byte[], byte[]> consumer) {
-            List<TopicPartition> partitions = partitions(consumer);
+            List<TopicPartition> partitions = TopicPartitions.resolve(consumer, request.topic(), request.partitions());
             // assigned before listing offsets, otherwise the consumer warns about unassigned partitions
             consumer.assign(partitions);
             Map<TopicPartition, Long> starts = new HashMap<>();
@@ -195,29 +193,8 @@ public class MessageSearchService {
             return ends;
         }
 
-        private List<TopicPartition> partitions(Consumer<byte[], byte[]> consumer) {
-            List<PartitionInfo> infos = consumer.partitionsFor(request.topic(), METADATA_TIMEOUT);
-            if (infos == null || infos.isEmpty()) {
-                throw new UnknownTopicOrPartitionException("Topic " + request.topic() + " not found");
-            }
-            return infos.stream()
-                    .map(PartitionInfo::partition)
-                    .filter(p -> request.partitions().isEmpty() || request.partitions().contains(p))
-                    .sorted()
-                    .map(p -> new TopicPartition(request.topic(), p))
-                    .toList();
-        }
-
         private void test(ConsumerRecord<byte[], byte[]> r) {
-            RecordFilter.Verdict v = filter.test(credentials, r, request.keyRegex(), request.valueRegex());
-            switch (v.result()) {
-                case TIMEOUT -> timeouts++;
-                case MATCH -> {
-                    matched++;
-                    emitter.emit(new SearchEvent.Match(v.message()));
-                }
-                case NO_MATCH -> { }
-            }
+            tally.record(filter.test(credentials, r, request.keyRegex(), request.valueRegex()), emitter);
         }
     }
 

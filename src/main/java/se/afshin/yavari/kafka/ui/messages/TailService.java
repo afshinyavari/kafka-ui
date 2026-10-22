@@ -13,9 +13,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.errors.WakeupException;
 import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
@@ -31,7 +29,6 @@ import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
 public class TailService {
 
     private static final Duration POLL = Duration.ofMillis(500);
-    private static final Duration METADATA_TIMEOUT = Duration.ofSeconds(15);
     private static final long PROGRESS_EVERY_NANOS = Duration.ofSeconds(1).toNanos();
 
     private final Function<Credentials, Consumer<byte[], byte[]>> consumers;
@@ -64,13 +61,11 @@ public class TailService {
             if (cancelled.isCancelled()) {
                 return;
             }
-            List<TopicPartition> assigned = partitions(consumer, topic, partitions);
+            List<TopicPartition> assigned = TopicPartitions.resolve(consumer, topic, partitions);
             consumer.assign(assigned);
             consumer.seekToEnd(assigned);
             assigned.forEach(consumer::position); // seeking is lazy: resolve the end now, before reporting readiness
-            long scanned = 0;
-            long matched = 0;
-            long timeouts = 0;
+            Tally tally = new Tally();
             emitter.emit(new SearchEvent.Progress(0, 0, 0));
             long lastReport = System.nanoTime();
             long reported = 0;
@@ -79,20 +74,12 @@ public class TailService {
                     if (cancelled.isCancelled()) {
                         return;
                     }
-                    scanned++;
-                    RecordFilter.Verdict v = filter.test(credentials, r, keyRegex, valueRegex);
-                    switch (v.result()) {
-                        case TIMEOUT -> timeouts++;
-                        case MATCH -> {
-                            matched++;
-                            emitter.emit(new SearchEvent.Match(v.message()));
-                        }
-                        case NO_MATCH -> { }
-                    }
+                    tally.scanned++;
+                    tally.record(filter.test(credentials, r, keyRegex, valueRegex), emitter);
                 }
-                if (scanned != reported && System.nanoTime() - lastReport >= PROGRESS_EVERY_NANOS) {
-                    emitter.emit(new SearchEvent.Progress(scanned, matched, timeouts));
-                    reported = scanned;
+                if (tally.scanned != reported && System.nanoTime() - lastReport >= PROGRESS_EVERY_NANOS) {
+                    emitter.emit(tally.progress());
+                    reported = tally.scanned;
                     lastReport = System.nanoTime();
                 }
             }
@@ -103,19 +90,5 @@ public class TailService {
                 emitter.fail(e);
             }
         }
-    }
-
-    private static List<TopicPartition> partitions(Consumer<byte[], byte[]> consumer, String topic,
-            Set<Integer> wanted) {
-        List<PartitionInfo> infos = consumer.partitionsFor(topic, METADATA_TIMEOUT);
-        if (infos == null || infos.isEmpty()) {
-            throw new UnknownTopicOrPartitionException("Topic " + topic + " not found");
-        }
-        return infos.stream()
-                .map(PartitionInfo::partition)
-                .filter(p -> wanted.isEmpty() || wanted.contains(p))
-                .sorted()
-                .map(p -> new TopicPartition(topic, p))
-                .toList();
     }
 }

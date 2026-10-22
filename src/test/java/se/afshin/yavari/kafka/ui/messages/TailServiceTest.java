@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -27,6 +28,7 @@ import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.Test;
 import se.afshin.yavari.kafka.ui.kafka.DevKafkaProfile;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
+import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
 import se.afshin.yavari.kafka.ui.security.Credentials;
 import se.afshin.yavari.kafka.ui.security.TestCertsResource;
 import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
@@ -80,13 +82,31 @@ class TailServiceTest {
                 .map(e -> ((SearchEvent.Match) e).message().value().text()).toList();
     }
 
+    private static void awaitUntil(BooleanSupplier condition) throws InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+        while (!condition.getAsBoolean()) {
+            assertThat(System.nanoTime()).as("condition not met within 30 s").isLessThan(deadline);
+            Thread.sleep(50);
+        }
+    }
+
+    @Test
+    void unknownPartitionIsAUserError() throws Exception {
+        String topic = topic();
+        var subscriber = service().tail(CREDS, topic, Set.of(7), Optional.empty(), Optional.empty())
+                .subscribe().withSubscriber(AssertSubscriber.<SearchEvent>create(Long.MAX_VALUE));
+        subscriber.awaitFailure(Duration.ofSeconds(30));
+        assertThat(subscriber.getFailure()).isInstanceOf(UserErrorException.class)
+                .hasMessageContaining("Partition 7 does not exist in topic " + topic + ".");
+    }
+
     @Test
     void emitsOnlyRecordsProducedAfterStart() throws Exception {
         String topic = topic();
         produce(topic, "old1", "old2", "old3");
         var subscriber = start(service(), topic, Optional.empty());
         produce(topic, "new1", "new2");
-        subscriber.awaitItems(3, Duration.ofSeconds(30));
+        awaitUntil(() -> values(subscriber).size() >= 2);
         assertThat(values(subscriber)).containsExactly("new1", "new2");
         assertThat(subscriber.getItems()).noneMatch(e -> e instanceof SearchEvent.Done);
         subscriber.cancel();
@@ -97,7 +117,7 @@ class TailServiceTest {
         String topic = topic();
         var subscriber = start(service(), topic, Optional.of(Pattern.compile("^keep")));
         produce(topic, "drop-1", "keep-1", "drop-2");
-        subscriber.awaitItems(3, Duration.ofSeconds(30)); // progress, match, progress (scanned 3)
+        awaitUntil(() -> subscriber.getItems().contains(new SearchEvent.Progress(3, 1, 0)));
         assertThat(values(subscriber)).containsExactly("keep-1");
         assertThat(subscriber.getItems()).contains(new SearchEvent.Progress(3, 1, 0));
         subscriber.cancel();
