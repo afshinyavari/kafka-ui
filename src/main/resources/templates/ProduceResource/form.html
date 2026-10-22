@@ -1,0 +1,45 @@
+<div class="modal-backdrop" id="produce-modal">
+  <div class="modal" role="dialog" aria-labelledby="produce-title">
+    <h2 id="produce-title">Produce message to {name}</h2>
+    <form hx-post="/topics/{name}/produce" hx-target="#produce-result" hx-swap="innerHTML"
+          hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
+      <div class="search-fields">
+        <label>Format
+          <select name="mode" onchange="document.getElementById('produce-schema').hidden = this.value !== 'AVRO'">
+            <option value="RAW">Raw text (JSON, XML, ...)</option>
+            <option value="AVRO">Avro (schema from registry)</option>
+          </select>
+        </label>
+        <label>Partition (optional)
+          <input type="number" name="partition" min="0" placeholder="auto">
+        </label>
+        <label>Key (optional)
+          <input type="text" name="key">
+        </label>
+      </div>
+      <fieldset id="produce-schema" hidden>
+        <legend>Value schema</legend>
+        <input type="search" name="q" placeholder="Search schemas by name"
+               hx-get="/schemas/search" hx-trigger="keyup changed delay:300ms, load" hx-target="#artifact-list">
+        <div id="artifact-list"></div>
+        <div id="version-picker"></div>
+      </fieldset>
+      <label class="block">Value
+        <textarea name="value" rows="10" spellcheck="false" placeholder="Paste the message here. For Avro, write plain JSON."></textarea>
+      </label>
+      <fieldset>
+        <legend>Headers</legend>
+        <div id="produce-headers">
+          <div class="header-row"><input type="text" name="headerName" placeholder="name"> <input type="text" name="headerValue" placeholder="value"></div>
+        </div>
+        <button type="button" class="btn"
+                onclick="var r = document.querySelector('#produce-headers .header-row').cloneNode(true); r.querySelectorAll('input').forEach(function(i) { i.value = '' }); document.getElementById('produce-headers').appendChild(r)">Add header</button>
+      </fieldset>
+      <div id="produce-result"></div>
+      <div class="toolbar">
+        <button type="submit" class="btn btn-primary">Produce</button>
+        <button type="button" class="btn" onclick="document.getElementById('produce-modal').remove()">Close</button>
+      </div>
+    </form>
+  </div>
+</div>

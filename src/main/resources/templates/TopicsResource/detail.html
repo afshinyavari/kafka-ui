@@ -3,6 +3,14 @@
 {#content}
 <p class="crumb"><a href="/topics">Topics</a> / </p>
 <h1>{name}</h1>
+<div class="toolbar">
+{#if info.canProduce}
+  <button type="button" class="btn btn-primary" hx-get="/topics/{name}/produce" hx-target="#modal" hx-swap="innerHTML">Produce Message</button>
+{#else}
+  <button type="button" class="btn" disabled title="You don't have Write permission on this topic">Produce Message</button>
+{/if}
+</div>
+<div id="modal"></div>
 <div id="tab-area">
 {#include TopicsResource/panel /}
 </div>

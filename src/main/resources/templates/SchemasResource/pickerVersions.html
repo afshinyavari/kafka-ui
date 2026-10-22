@@ -1,0 +1,9 @@
+<input type="hidden" name="group" value="{group}">
+<input type="hidden" name="artifact" value="{artifact}">
+<label>Version of {artifact}
+  <select name="version">
+    {#for v in versions}
+    <option value="{v.version}">{v.version}</option>
+    {/for}
+  </select>
+</label>
