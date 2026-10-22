@@ -22,9 +22,7 @@ spec:
     weight: 100
   port:
     targetPort: http
-  {{- with .Values.route.tls }}
   tls:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- toYaml (default (dict "termination" "edge" "insecureEdgeTerminationPolicy" "Redirect") .Values.route.tls) | nindent 4 }}
   wildcardPolicy: None
 {{- end }}

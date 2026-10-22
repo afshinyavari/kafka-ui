@@ -23,6 +23,11 @@ URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
 No Route or Ingress enabled. Reach it with:
   oc port-forward svc/{{ include "kafka-ui.fullname" . }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
 {{- end }}
+{{- if and (eq .Values.mode "oidc") (not .Values.oidc.clientSecret.existingSecret) }}
+
+WARNING: oidc.clientSecret.existingSecret is not set; QUARKUS_OIDC_CREDENTIALS_SECRET is not passed.
+This only works for a public OIDC client.
+{{- end }}
 {{- if eq .Values.mode "oidc" }}
 
 Register the redirect URI of the URL above in the Keycloak client "{{ .Values.oidc.clientId }}".

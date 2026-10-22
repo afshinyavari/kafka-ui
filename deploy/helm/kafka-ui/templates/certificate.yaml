@@ -20,8 +20,11 @@ spec:
     # The app requires PKCS#8 (BEGIN PRIVATE KEY).
     encoding: PKCS8
     algorithm: {{ .Values.certManager.privateKey.algorithm }}
-    {{- with .Values.certManager.privateKey.size }}
-    size: {{ . }}
+    {{- $alg := .Values.certManager.privateKey.algorithm }}
+    {{- if eq $alg "RSA" }}
+    size: {{ default 2048 .Values.certManager.privateKey.size | int64 }}
+    {{- else if eq $alg "ECDSA" }}
+    size: {{ default 256 .Values.certManager.privateKey.size | int64 }}
     {{- end }}
     rotationPolicy: {{ .Values.certManager.privateKey.rotationPolicy }}
   issuerRef:

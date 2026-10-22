@@ -46,7 +46,7 @@ echo "== oidc (default mode, route)"
 render oidc "$CI/oidc.yaml" && {
   hasnt "no KAFKA_UI_TLS_CERT_FILE" oidc 'KAFKA_UI_TLS_CERT_FILE'
   hasnt "no KAFKA_UI_TLS_KEY_FILE" oidc 'KAFKA_UI_TLS_KEY_FILE'
-  eq "no client-cert volume" oidc Deployment '.spec.template.spec.volumes[].name' "ca-bundle"
+  eq "no client-cert volume" oidc Deployment '[.spec.template.spec.volumes[].name | select(. == "client-cert")] | length' "0"
   eq "mode oidc" oidc ConfigMap '.data.KAFKA_UI_MODE' "oidc"
   eq "CA file path" oidc ConfigMap '.data.KAFKA_UI_TLS_CA_FILE' "/etc/kafka-ui/ca/ca.pem"
   eq "CA secret item key" oidc Deployment '.spec.template.spec.volumes[0].secret.items[0].key' "ca-bundle.pem"
@@ -165,6 +165,29 @@ render ing "$CI/ingress.yaml" && {
 render noexp "$CI/oidc.yaml" --set route.enabled=false && {
   hasnt "no proxy forwarding without route/ingress" noexp 'PROXY_ADDRESS_FORWARDING'
 }
+
+echo "== fix round 1"
+render big "$CI/oidc.yaml" --set config.search.maxScanned=1000000 --set config.search.maxMatches=10000000 --set image.tag=5 && {
+  eq "integer 1000000 not scientific" big ConfigMap '.data.KAFKA_UI_SEARCH_MAX_SCANNED' "1000000"
+  eq "integer 10000000 not scientific" big ConfigMap '.data.KAFKA_UI_SEARCH_MAX_MATCHES' "10000000"
+  eq "numeric image.tag" big Deployment '.spec.template.spec.containers[0].image' "image-registry.openshift-image-registry.svc:5000/kafka-ui/kafka-ui:5"
+}
+render rsa "$CI/mtls-certmanager.yaml" && eq "RSA default size 2048" rsa Certificate '.spec.privateKey.size' "2048"
+render ecnosize "$CI/mtls-certmanager.yaml" --set certManager.privateKey.algorithm=ECDSA --set certManager.privateKey.size=null && eq "ECDSA default size 256" ecnosize Certificate '.spec.privateKey.size' "256"
+render ed "$CI/mtls-certmanager.yaml" --set certManager.privateKey.algorithm=Ed25519 && eq "Ed25519 renders no size" ed Certificate '.spec.privateKey.size' "null"
+render pdb "$CI/oidc.yaml" --set podDisruptionBudget.enabled=true && {
+  eq "PDB maxUnavailable 1" pdb PodDisruptionBudget '.spec.maxUnavailable' "1"
+  eq "PDB no minAvailable" pdb PodDisruptionBudget '.spec.minAvailable' "null"
+}
+render defro "$CI/oidc.yaml" && {
+  eq "readOnlyRootFilesystem default true" defro Deployment '.spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem' "true"
+  eq "tmp emptyDir by default" defro Deployment '.spec.template.spec.containers[0].volumeMounts[] | select(.mountPath=="/tmp") | .name' "tmp"
+  eq "startupProbe" defro Deployment '.spec.template.spec.containers[0].startupProbe.failureThreshold' "30"
+}
+render nulls "$CI/oidc.yaml" --set config.search=null --set config.tail=null --set config.streams=null --set config.produce=null && ok "null config sub-maps render" 
+render rt "$CI/oidc.yaml" --set route.tls=null && eq "route tls rendered even when null" rt Route '.spec.tls.termination' "edge"
+fails "route passthrough rejected by schema" 'termination' -f "$CI/oidc.yaml" --set route.tls.termination=passthrough
+helm install kafka-ui "$CHART" -f "$CI/oidc.yaml" --set oidc.clientSecret.existingSecret= --dry-run=client 2>/dev/null | grep -q 'oidc.clientSecret.existingSecret is not set' && ok "NOTES warns when client secret unset" || bad "NOTES warns when client secret unset"
 
 echo "== failure messages"
 fails "missing image.repository" 'image\.repository is required' -f "$CI/oidc.yaml" --set image.repository=

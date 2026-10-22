@@ -132,9 +132,9 @@
         "path": { "type": "string" },
         "annotations": { "type": "object" },
         "tls": {
-          "type": ["object", "null"],
+          "type": "object",
           "properties": {
-            "termination": { "type": "string", "enum": ["edge", "reencrypt", "passthrough"] },
+            "termination": { "type": "string", "enum": ["edge", "reencrypt"] },
             "insecureEdgeTerminationPolicy": { "type": "string", "enum": ["Allow", "Disable", "Redirect", "None"] }
           }
         }
@@ -166,6 +166,7 @@
       "properties": { "readOnlyRootFilesystem": { "type": "boolean" } }
     },
     "resources": { "type": "object" },
+    "startupProbe": { "type": "object" },
     "livenessProbe": { "type": "object" },
     "readinessProbe": { "type": "object" },
     "nodeSelector": { "type": "object" },

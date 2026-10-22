@@ -65,8 +65,8 @@ certManager:
   privateKey:
     # -- RSA, ECDSA or Ed25519. The encoding is always PKCS8 (the app requires PKCS#8).
     algorithm: RSA
-    # -- Key size (not used for Ed25519). Leave empty for the cert-manager default.
-    size: 2048
+    # -- Key size. Leave empty for the default (RSA 2048, ECDSA 256); never rendered for Ed25519.
+    size: null
     rotationPolicy: Always
 
 # OIDC settings (mode: oidc).
@@ -130,6 +130,10 @@ route:
 ingress:
   enabled: false
   className: ""
+  # Searches and live tails stream over SSE; for ingress-nginx use e.g.:
+  #   nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+  #   nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+  #   nginx.ingress.kubernetes.io/proxy-buffering: "off"
   annotations: {}
   hosts:
     - host: kafka-ui.example.com
@@ -156,8 +160,9 @@ podSecurityContext:
 
 containerSecurityContext:
   allowPrivilegeEscalation: false
-  # -- When true, an emptyDir is mounted at /tmp. Not verified against the Quarkus image, so off by default.
-  readOnlyRootFilesystem: false
+  # -- Verified: the image starts and serves with a read-only root filesystem and a writable /tmp.
+  # When true, an emptyDir is mounted at /tmp.
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
@@ -169,11 +174,16 @@ resources:
   limits:
     memory: 1Gi
 
+startupProbe:
+  httpGet:
+    path: /q/health/live
+    port: http
+  periodSeconds: 2
+  failureThreshold: 30
 livenessProbe:
   httpGet:
     path: /q/health/live
     port: http
-  initialDelaySeconds: 10
   periodSeconds: 10
 readinessProbe:
   httpGet:
@@ -187,9 +197,9 @@ affinity: {}
 
 podDisruptionBudget:
   enabled: false
-  # -- Set one of minAvailable / maxUnavailable.
-  minAvailable: 1
-  # maxUnavailable: 1
+  # -- Set one of maxUnavailable / minAvailable (minAvailable: 1 blocks node drains with one replica).
+  maxUnavailable: 1
+  # minAvailable: 1
 
 networkPolicy:
   enabled: false

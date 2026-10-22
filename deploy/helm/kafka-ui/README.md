@@ -40,14 +40,20 @@ ingress). The chart creates no secrets: CA bundle, OIDC secrets and (mtls) clien
 | `config.search/tail/streams/produce.*` | unset | pass-through of the `KAFKA_UI_*` tuning variables, rendered only when set |
 | `route.enabled` | `true` | Route with edge TLS, HTTP redirect and `haproxy.router.openshift.io/timeout: 5m` (SSE tails and searches) |
 | `ingress.enabled` | `false` | generic alternative to the Route |
-| `containerSecurityContext.readOnlyRootFilesystem` | `false` | when true, an emptyDir is mounted at `/tmp` (not verified against the image) |
-| `podDisruptionBudget.enabled`, `networkPolicy.enabled` | `false` | |
+| `containerSecurityContext.readOnlyRootFilesystem` | `true` | read-only root with an emptyDir at `/tmp` (verified with the image) |
+| `podDisruptionBudget.enabled`, `networkPolicy.enabled` | `false` | PDB defaults to `maxUnavailable: 1` |
 | `extraEnv`, `extraEnvFrom`, `nodeSelector`, `tolerations`, `affinity`, `podAnnotations`, `podLabels`, `resources`, probes | | see `values.yaml` |
 
 When a Route or Ingress is enabled, `QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING` and
 `QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST` are set to `true` (the CSRF Origin check needs the forwarded host).
 In oidc mode the client certificate is never mounted and `KAFKA_UI_TLS_CERT_FILE`/`KEY_FILE` are not set.
 Secrets are mounted with `items` and no `subPath`, so certificate rotation (symlink swap) is picked up.
+
+## Notes
+
+- Secret rotation: OIDC secrets are injected as env vars, so rotating them needs a rollout
+  (`oc rollout restart deploy/<name>`, or bump a `podAnnotations` checksum). Mounted certificates reload by themselves.
+- Tunables not in the chart's `config` schema can be set with `extraEnv` (any `KAFKA_UI_*` or `QUARKUS_*` variable).
 
 ## Tests
 
@@ -56,4 +62,4 @@ deploy/helm/kafka-ui/tests/test.sh
 ```
 
 Runs `helm lint` (also `--strict`) and renders every scenario, asserting on the output with `yq` (including the
-rendering failures for missing required values). Needs `helm` and `yq` (mikefarah v4) on the PATH.
+rendering failures for missing required values). Needs `helm` and mikefarah `yq` v4 (not the Python yq) on the PATH.

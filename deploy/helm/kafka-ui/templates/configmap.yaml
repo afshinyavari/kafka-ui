@@ -1,16 +1,20 @@
 {{- include "kafka-ui.validate" . -}}
+{{- $search := default dict .Values.config.search }}
+{{- $tail := default dict .Values.config.tail }}
+{{- $streams := default dict .Values.config.streams }}
+{{- $produce := default dict .Values.config.produce }}
 {{- $cfg := dict
-  "KAFKA_UI_SEARCH_MAX_SCANNED" .Values.config.search.maxScanned
-  "KAFKA_UI_SEARCH_MAX_MATCHES" .Values.config.search.maxMatches
-  "KAFKA_UI_SEARCH_REGEX_TIMEOUT" .Values.config.search.regexTimeout
-  "KAFKA_UI_SEARCH_DEFAULT_RANGE" .Values.config.search.defaultRange
-  "KAFKA_UI_TAIL_MAX_ROWS" .Values.config.tail.maxRows
-  "KAFKA_UI_STREAMS_MAX_CONCURRENT" .Values.config.streams.maxConcurrent
-  "KAFKA_UI_STREAMS_MAX_PER_USER" .Values.config.streams.maxPerUser
-  "KAFKA_UI_PRODUCE_ID_LOCATION" .Values.config.produce.idLocation
-  "KAFKA_UI_PRODUCE_ID_KIND" .Values.config.produce.idKind
-  "KAFKA_UI_PRODUCE_VALUE_HEADER_PREFIX" .Values.config.produce.valueHeaderPrefix
-  "KAFKA_UI_PRODUCE_KEY_HEADER_PREFIX" .Values.config.produce.keyHeaderPrefix -}}
+  "KAFKA_UI_SEARCH_MAX_SCANNED" $search.maxScanned
+  "KAFKA_UI_SEARCH_MAX_MATCHES" $search.maxMatches
+  "KAFKA_UI_SEARCH_REGEX_TIMEOUT" $search.regexTimeout
+  "KAFKA_UI_SEARCH_DEFAULT_RANGE" $search.defaultRange
+  "KAFKA_UI_TAIL_MAX_ROWS" $tail.maxRows
+  "KAFKA_UI_STREAMS_MAX_CONCURRENT" $streams.maxConcurrent
+  "KAFKA_UI_STREAMS_MAX_PER_USER" $streams.maxPerUser
+  "KAFKA_UI_PRODUCE_ID_LOCATION" $produce.idLocation
+  "KAFKA_UI_PRODUCE_ID_KIND" $produce.idKind
+  "KAFKA_UI_PRODUCE_VALUE_HEADER_PREFIX" $produce.valueHeaderPrefix
+  "KAFKA_UI_PRODUCE_KEY_HEADER_PREFIX" $produce.keyHeaderPrefix -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -36,6 +40,6 @@ data:
   {{- end }}
   {{- range $k, $v := $cfg }}
   {{- if not (kindIs "invalid" $v) }}
-  {{ $k }}: {{ $v | toString | quote }}
+  {{ $k }}: {{ if kindIs "float64" $v }}{{ $v | int64 | toString | quote }}{{ else }}{{ $v | toString | quote }}{{ end }}
   {{- end }}
   {{- end }}
