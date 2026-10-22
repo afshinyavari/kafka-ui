@@ -3,7 +3,8 @@ name: kafka-ui
 description: Stand-alone Kafka UI (Quarkus + htmx) for a Strimzi-based cluster, deployed to OpenShift
 type: application
 version: 0.1.0
-appVersion: "1.0.0-SNAPSHOT"
+# Image tag used when image.tag is unset; set to the release version (without "v") when tagging a release
+appVersion: "main"
 keywords:
   - kafka
   - strimzi

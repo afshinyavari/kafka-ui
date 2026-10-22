@@ -8,7 +8,7 @@ Compatible with the `restricted-v2` SCC: no `runAsUser`/`fsGroup` is set, the po
 
 ```
 helm install kafka-ui deploy/helm/kafka-ui \
-  --set image.repository=image-registry.openshift-image-registry.svc:5000/<ns>/kafka-ui \
+  --set image.tag=sha-7824209 \
   --set kafka.bootstrapServers=my-cluster-kafka-bootstrap.kafka.svc:9093 \
   --set registry.url=https://apicurio-proxy.kafka.svc/apis/registry/v3 \
   --set tls.ca.existingSecret=ca-bundle --set tls.ca.key=ca-bundle.pem \
@@ -25,8 +25,8 @@ ingress). The chart creates no secrets: CA bundle, OIDC secrets and (mtls) clien
 | Value | Default | Meaning |
 |---|---|---|
 | `mode` | `oidc` | `oidc` or `mtls` (mtls = test environments only, no login) |
-| `image.repository` | **required** | no default registry |
-| `image.tag` | chart `appVersion` | |
+| `image.repository` | `docker.io/alfeenz/kafka-ui` | built by `.github/workflows/image.yml` |
+| `image.tag` | chart `appVersion` (`main`) | `main` moves with every push; pin `1.2.3` or `sha-<short>` in production |
 | `replicaCount` | `1` | `> 1` requires `oidc.stateSecret.existingSecret` |
 | `kafka.bootstrapServers` | **required** | `KAFKA_UI_BOOTSTRAP_SERVERS` |
 | `registry.url` | **required** | `KAFKA_UI_REGISTRY_URL` |

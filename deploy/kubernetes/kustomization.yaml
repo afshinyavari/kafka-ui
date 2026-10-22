@@ -6,8 +6,8 @@ resources:
   - service.yaml
 images:
   - name: kafka-ui
-    newName: kafka-ui   # your registry/image
-    newTag: latest
+    newName: docker.io/alfeenz/kafka-ui
+    newTag: main   # pin a release (1.2.3) or sha-<short> in production
 # Example: other secret / field names for the CA bundle
 # patches:
 #   - target: { kind: Deployment, name: kafka-ui }
