@@ -29,7 +29,7 @@ public class ModeConfigSource implements ConfigSourceFactory {
     }
 
     static Map<String, String> properties(String mode) {
-        boolean oidc = mode.equals("oidc");
+        boolean oidc = !mode.equals("mtls"); // fail closed: anything but mtls requires authentication
         return Map.of(
                 "quarkus.oidc.tenant-enabled", String.valueOf(oidc),
                 "quarkus.http.auth.permission.app.paths", "/*",

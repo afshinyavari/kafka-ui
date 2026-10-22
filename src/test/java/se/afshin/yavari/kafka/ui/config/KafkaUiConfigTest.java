@@ -49,6 +49,6 @@ class KafkaUiConfigTest {
 
     @Test
     void modeIsParsedCaseInsensitively() {
-        assertEquals(Mode.OIDC, load(Map.of("kafka-ui.mode", "oidc")).mode());
+        assertEquals(Mode.OIDC, load(Map.of("kafka-ui.mode", "OIDC")).mode());
     }
 }
