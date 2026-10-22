@@ -4,7 +4,7 @@ description: Stand-alone Kafka UI (Quarkus + htmx) for a Strimzi-based cluster, 
 type: application
 version: 0.1.0
 # Image tag used when image.tag is unset; set to the release version (without "v") when tagging a release
-appVersion: "main"
+appVersion: "0.1.0"
 keywords:
   - kafka
   - strimzi

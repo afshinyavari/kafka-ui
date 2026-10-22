@@ -6,7 +6,7 @@ mode: oidc
 image:
   # -- Image repository, built by .github/workflows/image.yml
   repository: docker.io/alfeenz/kafka-ui
-  # -- Image tag. Defaults to the chart's appVersion ("main", which moves); pin a release (1.2.3) or sha-<short> in production.
+  # -- Image tag. Defaults to the chart's appVersion (the released image).
   tag: ""
   pullPolicy: IfNotPresent
 
