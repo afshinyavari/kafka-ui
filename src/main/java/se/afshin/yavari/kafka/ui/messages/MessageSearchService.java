@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -28,7 +29,7 @@ import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
 
 /**
  * Scans a topic over a time (or offset) range, decodes every record and streams the ones whose decoded key/value
- * match the regexes. Runs on a worker thread; cancelling the subscription stops polling and closes the consumer.
+ * match the regexes. Runs on a stream thread (see {@link StreamLimiter}); cancelling the subscription stops polling and closes the consumer.
  */
 @ApplicationScoped
 public class MessageSearchService {
@@ -45,10 +46,12 @@ public class MessageSearchService {
     private final Duration idleTimeout;
     private final RecordFilter filter;
     private final Clock clock;
+    private final Executor executor;
 
     @Inject
-    public MessageSearchService(KafkaClients clients, MessageDecoder decoder, KafkaUiConfig config) {
-        this(clients::newConsumer, decoder, config.search(), IDLE_TIMEOUT);
+    public MessageSearchService(KafkaClients clients, MessageDecoder decoder, KafkaUiConfig config,
+            StreamLimiter limiter) {
+        this(clients::newConsumer, decoder, config.search(), IDLE_TIMEOUT, Clock.systemUTC(), limiter.executor());
     }
 
     MessageSearchService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
@@ -63,6 +66,12 @@ public class MessageSearchService {
 
     MessageSearchService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
             KafkaUiConfig.Search limits, Duration idleTimeout, Clock clock) {
+        this(consumers, decoder, limits, idleTimeout, clock, Infrastructure.getDefaultWorkerPool());
+    }
+
+    private MessageSearchService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
+            KafkaUiConfig.Search limits, Duration idleTimeout, Clock clock, Executor executor) {
+        this.executor = executor;
         this.clock = clock;
         this.consumers = consumers;
         this.limits = limits;
@@ -72,7 +81,7 @@ public class MessageSearchService {
 
     public Multi<SearchEvent> search(Credentials credentials, SearchRequest request) {
         return Multi.createFrom().<SearchEvent>emitter(emitter -> run(credentials, request, emitter))
-                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+                .runSubscriptionOn(executor);
     }
 
     private void run(Credentials credentials, SearchRequest request, MultiEmitter<? super SearchEvent> emitter) {

@@ -124,6 +124,17 @@ class TailServiceTest {
     }
 
     @Test
+    void quietTailKeepsReportingProgress() throws Exception {
+        String topic = topic();
+        var subscriber = start(new TailService(clients::newConsumer, decoder, Duration.ofMillis(100),
+                Duration.ofMillis(300)), topic, Optional.empty());
+        // nothing is produced: only the keep-alive can add progress events
+        awaitUntil(() -> subscriber.getItems().size() >= 4);
+        assertThat(subscriber.getItems()).allMatch(e -> e.equals(new SearchEvent.Progress(0, 0, 0)));
+        subscriber.cancel();
+    }
+
+    @Test
     void cancelClosesConsumer() throws Exception {
         String topic = topic();
         CountDownLatch closed = new CountDownLatch(1);

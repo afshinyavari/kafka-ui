@@ -80,6 +80,7 @@ public class MessagesResource {
     @Inject TopicService topics;
     @Inject MessageSearchService search;
     @Inject TailService tail;
+    @Inject StreamLimiter limiter;
     @Inject CredentialsProvider credentials;
     @Inject KafkaUiConfig config;
 
@@ -131,7 +132,7 @@ public class MessagesResource {
         } catch (UserErrorException e) {
             return Multi.createFrom().item(event(sse, "done", Templates.failed(e.error().message())));
         }
-        return tail.tail(creds, name, request.partitions(), request.keyRegex(), request.valueRegex())
+        return limiter.limit(creds, tail.tail(creds, name, request.partitions(), request.keyRegex(), request.valueRegex()))
                 .map(e -> switch (e) {
                     case SearchEvent.Match m -> event(sse, "match", Templates.row(name, m.message()));
                     case SearchEvent.Progress p -> event(sse, "progress", Templates.tailProgress(p));
@@ -154,7 +155,7 @@ public class MessagesResource {
         } catch (UserErrorException e) {
             return Multi.createFrom().item(event(sse, "done", Templates.failed(e.error().message())));
         }
-        return search.search(creds, request)
+        return limiter.limit(creds, search.search(creds, request))
                 .map(e -> switch (e) {
                     case SearchEvent.Match m -> event(sse, "match", Templates.row(name, m.message()));
                     case SearchEvent.Progress p -> event(sse, "progress", Templates.progress(p));

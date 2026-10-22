@@ -92,6 +92,7 @@ class KafkaClientsTest {
             public Search search() { throw new UnsupportedOperationException(); }
             public Tail tail() { throw new UnsupportedOperationException(); }
             public Produce produce() { throw new UnsupportedOperationException(); }
+            public Streams streams() { throw new UnsupportedOperationException(); }
         };
         TlsMaterial m = TlsMaterial.load(Optional.of(g.certFile()), Optional.of(g.keyFile()), g.caFile());
         holder = new FakeHolder(withTls, m);

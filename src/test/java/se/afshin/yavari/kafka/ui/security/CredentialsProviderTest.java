@@ -30,6 +30,7 @@ class CredentialsProviderTest {
             public Search search() { throw new UnsupportedOperationException(); }
             public Tail tail() { throw new UnsupportedOperationException(); }
             public Produce produce() { throw new UnsupportedOperationException(); }
+            public Streams streams() { throw new UnsupportedOperationException(); }
         };
     }
 

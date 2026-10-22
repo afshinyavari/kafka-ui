@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -24,21 +25,27 @@ import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
 /**
  * Follows a topic from its current end and streams the records whose decoded key/value match the regexes. Emits
  * {@link SearchEvent.Match} and periodic {@link SearchEvent.Progress} (the first one as soon as the consumer is
- * positioned at the end); never {@code Done}. Ends with {@link SearchEvent.Expired} when the bearer token expires. Runs on a worker thread until the subscription is cancelled.
+ * positioned at the end); never {@code Done}. A quiet tail still reports progress every {@link #KEEP_ALIVE}, so
+ * proxies do not close the idle connection. Ends with {@link SearchEvent.Expired} when the bearer token expires.
+ * Runs on a stream thread until the subscription is cancelled.
  */
 @ApplicationScoped
 public class TailService {
 
     private static final Duration POLL = Duration.ofMillis(500);
     private static final long PROGRESS_EVERY_NANOS = Duration.ofSeconds(1).toNanos();
+    static final Duration KEEP_ALIVE = Duration.ofSeconds(15);
 
     private final Function<Credentials, Consumer<byte[], byte[]>> consumers;
     private final RecordFilter filter;
     private final Clock clock;
+    private final long keepAliveNanos;
+    private final Executor executor;
 
     @Inject
-    public TailService(KafkaClients clients, MessageDecoder decoder, KafkaUiConfig config) {
-        this(clients::newConsumer, decoder, config.search().regexTimeout());
+    public TailService(KafkaClients clients, MessageDecoder decoder, KafkaUiConfig config, StreamLimiter limiter) {
+        this(clients::newConsumer, decoder, config.search().regexTimeout(), Clock.systemUTC(), KEEP_ALIVE,
+                limiter.executor());
     }
 
     TailService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
@@ -48,9 +55,21 @@ public class TailService {
 
     TailService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
             Duration regexTimeout, Clock clock) {
+        this(consumers, decoder, regexTimeout, clock, KEEP_ALIVE, Infrastructure.getDefaultWorkerPool());
+    }
+
+    TailService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
+            Duration regexTimeout, Duration keepAlive) {
+        this(consumers, decoder, regexTimeout, Clock.systemUTC(), keepAlive, Infrastructure.getDefaultWorkerPool());
+    }
+
+    private TailService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
+            Duration regexTimeout, Clock clock, Duration keepAlive, Executor executor) {
         this.clock = clock;
         this.consumers = consumers;
         this.filter = new RecordFilter(decoder, regexTimeout);
+        this.keepAliveNanos = keepAlive.toNanos();
+        this.executor = executor;
     }
 
     /** Empty {@code partitions} means all. */
@@ -58,7 +77,7 @@ public class TailService {
             Optional<Pattern> keyRegex, Optional<Pattern> valueRegex) {
         return Multi.createFrom().<SearchEvent>emitter(
                         emitter -> run(credentials, topic, partitions, keyRegex, valueRegex, emitter))
-                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+                .runSubscriptionOn(executor);
     }
 
     private void run(Credentials credentials, String topic, Set<Integer> partitions, Optional<Pattern> keyRegex,
@@ -95,7 +114,8 @@ public class TailService {
                     tally.scanned++;
                     tally.record(filter.test(credentials, r, keyRegex, valueRegex), emitter);
                 }
-                if (tally.scanned != reported && System.nanoTime() - lastReport >= PROGRESS_EVERY_NANOS) {
+                long sinceReport = System.nanoTime() - lastReport;
+                if ((tally.scanned != reported && sinceReport >= PROGRESS_EVERY_NANOS) || sinceReport >= keepAliveNanos) {
                     emitter.emit(tally.progress());
                     reported = tally.scanned;
                     lastReport = System.nanoTime();

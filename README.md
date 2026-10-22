@@ -50,6 +50,8 @@ Quarkus maps `kafka-ui.some-name` to `KAFKA_UI_SOME_NAME`.
 | `KAFKA_UI_SEARCH_REGEX_TIMEOUT` | `100ms` | time limit per regexp match (protects against catastrophic backtracking) |
 | `KAFKA_UI_SEARCH_DEFAULT_RANGE` | `1h` | default time range in the search form |
 | `KAFKA_UI_TAIL_MAX_ROWS` | `1000` | max rows kept in the tail view |
+| `KAFKA_UI_STREAMS_MAX_CONCURRENT` | `32` | max searches + live tails running at once (dedicated thread pool) |
+| `KAFKA_UI_STREAMS_MAX_PER_USER` | `3` | max searches + live tails per user at once (in `mtls` mode all users share one identity) |
 | `KAFKA_UI_PRODUCE_ID_LOCATION` | `PAYLOAD` | where produced Avro records carry the schema id: `PAYLOAD` (magic byte + id) or `HEADERS` |
 | `KAFKA_UI_PRODUCE_ID_KIND` | `CONTENT_ID` | `CONTENT_ID` or `GLOBAL_ID` |
 | `KAFKA_UI_PRODUCE_VALUE_HEADER_PREFIX` | `apicurio.value.` | header name prefix for the value schema id (when `HEADERS`) |

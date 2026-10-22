@@ -28,6 +28,8 @@ public interface KafkaUiConfig {
 
     Produce produce();
 
+    Streams streams();
+
     interface Tls {
         Optional<Path> certFile();
 
@@ -57,6 +59,17 @@ public interface KafkaUiConfig {
     interface Tail {
         @WithDefault("1000")
         int maxRows();
+    }
+
+    /** Running searches and tails: each holds a Kafka consumer and a thread until it ends. */
+    interface Streams {
+        /** Size of the dedicated thread pool, i.e. the most searches and tails running at once. */
+        @WithDefault("32")
+        int maxConcurrent();
+
+        /** Per identity (user in OIDC mode; everyone shares one identity in mTLS mode). */
+        @WithDefault("3")
+        int maxPerUser();
     }
 
     /**

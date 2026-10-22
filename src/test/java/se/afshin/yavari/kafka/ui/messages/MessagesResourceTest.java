@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 
 import io.quarkus.test.common.WithTestResource;
+import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
@@ -205,6 +206,19 @@ class MessagesResourceTest {
         String body = given().get("/topics/search-ghost/messages/search").then().statusCode(200).extract().asString();
         assertThat(body).contains("event:done").contains("Topic search-ghost does not exist.");
         assertThat(clients.admin(new Credentials.Mtls()).listTopics().names().get()).doesNotContain("search-ghost");
+    }
+
+    @Test
+    void streamsBeyondTheLimitEndWithFriendlyError() throws Exception {
+        ensureTopic();
+        QuarkusMock.installMockForType(new StreamLimiter(32, 0), StreamLimiter.class);
+        for (String stream : List.of("search", "tail")) {
+            String body = given().get("/topics/" + TOPIC + "/messages/" + stream).then().statusCode(200)
+                    .extract().asString();
+            assertThat(body).as(stream).contains("event:done")
+                    .contains("Too many running searches – stop one and try again.")
+                    .doesNotContain("event:match");
+        }
     }
 
     @Test
