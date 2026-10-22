@@ -1,0 +1,119 @@
+package se.afshin.yavari.kafka.ui.topics;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.not;
+
+import io.quarkus.test.common.WithTestResource;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
+import jakarta.inject.Inject;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.TopicExistsException;
+import org.junit.jupiter.api.Test;
+import se.afshin.yavari.kafka.ui.kafka.DevKafkaProfile;
+import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
+import se.afshin.yavari.kafka.ui.security.Credentials;
+import se.afshin.yavari.kafka.ui.security.TestCertsResource;
+
+@QuarkusTest
+@TestProfile(DevKafkaProfile.class)
+@WithTestResource(TestCertsResource.class)
+class TopicsResourceTest {
+
+    @Inject KafkaClients clients;
+
+    static boolean created;
+
+    private void ensureTopics() throws Exception {
+        if (created) {
+            return;
+        }
+        var creds = new Credentials.Mtls();
+        try {
+            clients.admin(creds).createTopics(List.of(
+                    new NewTopic("orders", 3, (short) 1).configs(java.util.Map.of("retention.ms", "123456")),
+                    new NewTopic("payments", 1, (short) 1))).all().get();
+        } catch (ExecutionException e) {
+            if (!(e.getCause() instanceof TopicExistsException)) {
+                throw e;
+            }
+        }
+        try (var producer = clients.newProducer(creds)) {
+            for (int i = 0; i < 5; i++) {
+                producer.send(new ProducerRecord<>("orders", i % 3, null, ("v" + i).getBytes(), ("v" + i).getBytes())).get();
+            }
+        }
+        created = true;
+    }
+
+    @Test void listsTopicsWithPartitionsAndCount() throws Exception {
+        ensureTopics();
+        given().get("/topics").then().statusCode(200)
+                .body(matchesPattern("(?s).*<td><a href=\"/topics/orders\">orders</a></td>\\s*<td>3</td>\\s*<td>1</td>\\s*<td>5</td>.*"))
+                .body(containsString("/topics/orders"));
+    }
+
+    @Test void filterByName() throws Exception {
+        ensureTopics();
+        given().header("HX-Request", "true").queryParam("q", "ord").get("/topics").then().statusCode(200)
+                .body(containsString("orders"))
+                .body(not(containsString("payments")))
+                .body(not(containsString("<html")));
+    }
+
+    @Test void internalTopicsHiddenByDefault() throws Exception {
+        ensureTopics();
+        given().get("/topics").then().body(not(containsString("__consumer_offsets")));
+    }
+
+    @Test void detailHasTabs() throws Exception {
+        ensureTopics();
+        given().get("/topics/orders").then().statusCode(200)
+                .body(containsString("Overview")).body(containsString("Messages"))
+                .body(containsString("Consumers")).body(containsString("Settings"))
+                .body(containsString("hx-get=\"/topics/orders/settings\""))
+                .body(containsString("<html"));
+    }
+
+    @Test void overviewShowsPartitions() throws Exception {
+        ensureTopics();
+        given().header("HX-Request", "true").get("/topics/orders/overview").then().statusCode(200)
+                .body(not(containsString("<html")))
+                .body(containsString("Partitions"));
+    }
+
+    @Test void settingsMarkOverriddenAndDefault() throws Exception {
+        ensureTopics();
+        given().header("HX-Request", "true").get("/topics/orders/settings").then().statusCode(200)
+                .body(containsString("retention.ms"))
+                .body(containsString("123456"))
+                .body(containsString("overridden"))
+                .body(containsString("default"));
+    }
+
+    @Test void settingsAreReadOnly() throws Exception {
+        ensureTopics();
+        given().get("/topics/orders/settings").then().statusCode(200)
+                .body(containsString("retention.ms"))
+                .body(not(containsString("<form")))
+                .body(not(containsString("Edit")))
+                .body(not(containsString("Delete")));
+    }
+
+    @Test void unknownTopicShowsFriendlyNotFound() {
+        given().get("/topics/nope").then().statusCode(404)
+                .body(containsString("Topic nope does not exist."));
+    }
+
+    @Test void noCreateOrDeleteActions() throws Exception {
+        ensureTopics();
+        given().get("/topics").then().statusCode(200)
+                .body(not(containsString("Add a Topic")))
+                .body(not(containsString("Delete")));
+    }
+}

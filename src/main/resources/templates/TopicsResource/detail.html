@@ -1,0 +1,20 @@
+{#include layout}
+{#title}{name} - Kafka UI{/title}
+{#content}
+<p class="crumb"><a href="/topics">Topics</a> / </p>
+<h1>{name}</h1>
+<nav class="tabs" hx-target="#tab-panel" hx-swap="innerHTML">
+  <a href="/topics/{name}/overview" hx-get="/topics/{name}/overview" hx-push-url="true" class="{#if tab == 'overview'}active{/if}">Overview</a>
+  <a href="/topics/{name}/messages" hx-get="/topics/{name}/messages" hx-push-url="true" class="{#if tab == 'messages'}active{/if}">Messages</a>
+  <a href="/topics/{name}/consumers" hx-get="/topics/{name}/consumers" hx-push-url="true" class="{#if tab == 'consumers'}active{/if}">Consumers</a>
+  <a href="/topics/{name}/settings" hx-get="/topics/{name}/settings" hx-push-url="true" class="{#if tab == 'settings'}active{/if}">Settings</a>
+</nav>
+<div id="tab-panel">
+{#if tab == 'overview'}{#include TopicsResource/overview /}
+{#else if tab == 'settings'}{#include TopicsResource/settings /}
+{#else if tab == 'messages'}{#include TopicsResource/messages /}
+{#else}{#include TopicsResource/consumers /}
+{/if}
+</div>
+{/content}
+{/include}

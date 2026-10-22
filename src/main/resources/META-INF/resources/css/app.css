@@ -29,3 +29,11 @@ tbody tr:hover { background: var(--bg-sidebar); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
 .tabs a { padding: 8px 14px; color: var(--fg-muted); text-decoration: none; border-bottom: 2px solid transparent; }
 .tabs a.active, .tabs a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.toolbar { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+.toolbar input[type=search] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; min-width: 280px; font: inherit; }
+.check { color: var(--fg-muted); }
+.crumb { margin: 0 0 4px; color: var(--fg-muted); }
+.crumb a, td a { color: var(--accent); text-decoration: none; }
+h2 { font-size: 16px; margin: 8px 0; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; background: var(--bg-sidebar); color: var(--fg-muted); border: 1px solid var(--border); }
+.badge-accent { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bg); }

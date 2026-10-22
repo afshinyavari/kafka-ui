@@ -1,0 +1,12 @@
+<table>
+  <thead><tr><th>Key</th><th>Value</th><th>Source</th></tr></thead>
+  <tbody>
+  {#for c in info.configs.values}
+    <tr>
+      <td>{c.name}</td>
+      <td>{c.value}</td>
+      <td>{#if c.isDefault}<span class="badge">default</span>{#else}<span class="badge badge-accent">overridden</span>{/if}</td>
+    </tr>
+  {/for}
+  </tbody>
+</table>

@@ -1,0 +1,31 @@
+{#include layout}
+{#title}Topics - Kafka UI{/title}
+{#content}
+<h1>Topics</h1>
+<div class="toolbar">
+  <input type="search" name="q" value="{q}" placeholder="Search by topic name"
+         hx-get="/topics" hx-trigger="keyup changed delay:300ms, search" hx-target="#topics-table" hx-include="[name='internal']">
+  <label class="check"><input type="checkbox" name="internal" value="true" {#if internal}checked{/if}
+         hx-get="/topics" hx-trigger="change" hx-target="#topics-table" hx-include="[name='q']"> Show internal topics</label>
+</div>
+<div id="topics-table">
+{#fragment id=table}
+<table>
+  <thead><tr><th>Topic name</th><th>Partitions</th><th>Replication</th><th>Messages</th></tr></thead>
+  <tbody>
+  {#for t in topics}
+    <tr>
+      <td><a href="/topics/{t.name}">{t.name}</a>{#if t.internal} <span class="badge">internal</span>{/if}</td>
+      <td>{t.partitions}</td>
+      <td>{t.replicationFactor}</td>
+      <td>{t.messageCount}</td>
+    </tr>
+  {#else}
+    <tr><td colspan="4" class="muted">No topics found.</td></tr>
+  {/for}
+  </tbody>
+</table>
+{/fragment}
+</div>
+{/content}
+{/include}

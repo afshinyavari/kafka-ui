@@ -1,0 +1,17 @@
+<h2>Partitions</h2>
+<table>
+  <thead><tr><th>Partition</th><th>Leader</th><th>Replicas</th><th>In sync</th><th>First offset</th><th>Last offset</th><th>Messages</th></tr></thead>
+  <tbody>
+  {#for p in info.partitions}
+    <tr>
+      <td>{p.partition}</td>
+      <td>{p.leader}</td>
+      <td>{p.replicas.size}</td>
+      <td>{p.isr.size}</td>
+      <td>{p.startOffset}</td>
+      <td>{p.endOffset}</td>
+      <td>{p.endOffset - p.startOffset}</td>
+    </tr>
+  {/for}
+  </tbody>
+</table>
