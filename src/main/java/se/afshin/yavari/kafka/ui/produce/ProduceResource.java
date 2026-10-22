@@ -56,9 +56,13 @@ public class ProduceResource {
         Optional<Integer> part = Optional.empty();
         if (partition != null && !partition.isBlank()) {
             try {
-                part = Optional.of(Integer.parseInt(partition.trim()));
+                int number = Integer.parseInt(partition.trim());
+                if (number < 0) {
+                    throw new NumberFormatException(partition);
+                }
+                part = Optional.of(number);
             } catch (NumberFormatException e) {
-                throw new UserErrorException(new UserError("Invalid message", "Partition must be a number.", 400));
+                throw new UserErrorException(new UserError("Invalid message", "Partition must be a non-negative number.", 400));
             }
         }
         List<HeaderView> headers = new ArrayList<>();

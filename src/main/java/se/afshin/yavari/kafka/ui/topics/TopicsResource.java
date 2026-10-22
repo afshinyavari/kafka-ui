@@ -13,6 +13,8 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
+import se.afshin.yavari.kafka.ui.groups.GroupRow;
+import se.afshin.yavari.kafka.ui.groups.GroupService;
 import se.afshin.yavari.kafka.ui.security.CredentialsProvider;
 import se.afshin.yavari.kafka.ui.web.Htmx;
 
@@ -26,12 +28,13 @@ public class TopicsResource {
 
         static native TemplateInstance list$table(List<TopicRow> topics);
 
-        static native TemplateInstance detail(String name, String tab, TopicInfo info);
+        static native TemplateInstance detail(String name, String tab, TopicInfo info, List<GroupRow> groups);
 
-        static native TemplateInstance panel(String name, String tab, TopicInfo info);
+        static native TemplateInstance panel(String name, String tab, TopicInfo info, List<GroupRow> groups);
     }
 
     @Inject TopicService topics;
+    @Inject GroupService groupService;
     @Inject CredentialsProvider credentials;
 
     @Context HttpHeaders headers;
@@ -62,7 +65,6 @@ public class TopicsResource {
         return tab(name, "settings");
     }
 
-    /** Placeholder until the consumers tab is built. */
     @GET
     @Path("{name}/consumers")
     public TemplateInstance consumers(@PathParam("name") String name) {
@@ -71,8 +73,10 @@ public class TopicsResource {
 
     /** htmx gets the tab bar plus panel (so the active tab updates); otherwise the full page. */
     private TemplateInstance tab(String name, String tab) {
-        var info = topics.describe(credentials.current(), name);
-        return isFragment() ? Templates.panel(name, tab, info) : Templates.detail(name, tab, info);
+        var current = credentials.current();
+        var info = topics.describe(current, name);
+        var groupRows = "consumers".equals(tab) ? groupService.forTopic(current, name) : List.<GroupRow>of();
+        return isFragment() ? Templates.panel(name, tab, info, groupRows) : Templates.detail(name, tab, info, groupRows);
     }
 
     private boolean isFragment() {

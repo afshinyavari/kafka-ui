@@ -1,0 +1,36 @@
+{@se.afshin.yavari.kafka.ui.groups.GroupDetail group}
+<form class="reset-form" hx-post="/consumers/{group.groupId}/reset" hx-target="#reset-result" hx-swap="innerHTML"
+      hx-confirm="Reset the offsets of group {group.groupId}? Its consumers will resume from the new offsets."
+      hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
+  <h2>Reset offsets</h2>
+  {#if group.offsets.isEmpty}
+  <p class="muted">This group has no committed offsets to reset.</p>
+  {#else}
+  <div class="search-fields">
+    <label>Topic
+      <select name="topic">
+        {#for t in group.topics}<option value="{t}">{t}</option>{/for}
+      </select>
+    </label>
+    <label>Partitions (comma-separated, empty = all)
+      <input type="text" name="partitions" placeholder="all">
+    </label>
+    <label>Reset to
+      <select name="to" onchange="document.getElementById('reset-ts').hidden = this.value !== 'TIMESTAMP'; document.getElementById('reset-off').hidden = this.value !== 'OFFSET'">
+        <option value="EARLIEST">Earliest</option>
+        <option value="LATEST">Latest</option>
+        <option value="TIMESTAMP">Timestamp</option>
+        <option value="OFFSET">Offset</option>
+      </select>
+    </label>
+    <label id="reset-ts" hidden>Date and time (UTC)
+      <input type="datetime-local" name="timestamp">
+    </label>
+    <label id="reset-off" hidden>Offset
+      <input type="number" name="offset" min="0">
+    </label>
+  </div>
+  <div class="toolbar"><button type="submit" class="btn btn-primary">Reset offsets</button></div>
+  {/if}
+  <div id="reset-result"></div>
+</form>

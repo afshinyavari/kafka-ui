@@ -3,6 +3,7 @@ package se.afshin.yavari.kafka.ui.produce;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -33,6 +34,7 @@ import se.afshin.yavari.kafka.ui.serde.WireFormat;
 public class ProduceService {
 
     private static final long SEND_TIMEOUT_SECONDS = 30;
+    private static final long CLOSE_TIMEOUT_SECONDS = 10;
 
     private final Function<Credentials, Producer<byte[], byte[]>> producers;
     private final RegistryClient registry;
@@ -64,7 +66,9 @@ public class ProduceService {
                 ? avroValue(credentials, req, headers)
                 : (req.value() == null ? "" : req.value()).getBytes(StandardCharsets.UTF_8);
 
-        try (Producer<byte[], byte[]> producer = producers.apply(credentials)) {
+        Producer<byte[], byte[]> producer = null;
+        try {
+            producer = producers.apply(credentials);
             return producer
                     .send(new ProducerRecord<>(req.topic(), req.partition().orElse(null), null, key, value, headers))
                     .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -76,6 +80,19 @@ public class ProduceService {
                 throw u;
             }
             throw new UserErrorException(KafkaErrors.translate(e, "topic " + req.topic()));
+        } finally {
+            closeQuietly(producer);
+        }
+    }
+
+    /** Bounded close: the default close() can block indefinitely when the broker is unreachable. */
+    private static void closeQuietly(Producer<byte[], byte[]> producer) {
+        if (producer != null) {
+            try {
+                producer.close(Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS));
+            } catch (RuntimeException e) {
+                // the record outcome is already decided; a failing close must not mask it
+            }
         }
     }
 

@@ -1,0 +1,30 @@
+{#include layout}
+{#title}Consumers - Kafka UI{/title}
+{#content}
+<h1>Consumers</h1>
+<div class="toolbar">
+  <input type="search" name="q" value="{q}" placeholder="Search by group id"
+         hx-get="/consumers" hx-trigger="keyup changed delay:300ms, search" hx-target="#groups-table">
+</div>
+<div id="groups-table">
+{#fragment id=table}
+<table>
+  <thead><tr><th>Group id</th><th>State</th><th>Members</th><th>Topics</th><th>Lag</th></tr></thead>
+  <tbody>
+  {#for g in groups}
+    <tr>
+      <td><a href="/consumers/{g.groupId}">{g.groupId}</a></td>
+      <td><span class="badge">{g.state}</span></td>
+      <td>{g.members}</td>
+      <td>{g.topics}</td>
+      <td>{g.totalLag}</td>
+    </tr>
+  {#else}
+    <tr><td colspan="5" class="muted">No consumer groups found.</td></tr>
+  {/for}
+  </tbody>
+</table>
+{/fragment}
+</div>
+{/content}
+{/include}

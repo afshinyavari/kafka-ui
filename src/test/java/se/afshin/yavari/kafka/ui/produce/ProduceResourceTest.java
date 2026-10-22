@@ -92,7 +92,7 @@ class ProduceResourceTest {
     @Test
     void rawProduceShowsPartitionOffsetAndLink() throws Exception {
         ensureTopic();
-        given().formParam("mode", "RAW").formParam("value", "<a>1</a>").formParam("key", "")
+        given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "<a>1</a>").formParam("key", "")
                 .formParam("headerName", "trace").formParam("headerValue", "x")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(200)
                 .body(containsString("partition 0"))
@@ -103,7 +103,7 @@ class ProduceResourceTest {
     @Test
     void avroProduceFramesWithContentId() throws Exception {
         ensureTopic();
-        given().formParam("mode", "AVRO").formParam("value", "{\"id\":\"o-1\",\"amount\":2.5}")
+        given().header("HX-Request", "true").formParam("mode", "AVRO").formParam("value", "{\"id\":\"o-1\",\"amount\":2.5}")
                 .formParam("group", "default").formParam("artifact", "order-value").formParam("version", "3")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(200);
         byte[] v = lastValue();
@@ -119,6 +119,45 @@ class ProduceResourceTest {
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(400)
                 .body(containsString("amount"))
                 .body(not(containsString("<html")));
+    }
+
+    @Test
+    void negativeOrNonNumericPartitionIsAValidationError() throws Exception {
+        ensureTopic();
+        for (String bad : new String[] {"-1", "abc"}) {
+            given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "x")
+                    .formParam("partition", bad)
+                    .post("/topics/" + TOPIC + "/produce").then().statusCode(400)
+                    .body(containsString("Partition must be a non-negative number"));
+        }
+    }
+
+    @Test
+    void postWithoutHxRequestIsBlocked() throws Exception {
+        ensureTopic();
+        given().formParam("mode", "RAW").formParam("value", "x")
+                .post("/topics/" + TOPIC + "/produce").then().statusCode(403)
+                .body(containsString("Request blocked: cross-site request"));
+    }
+
+    @Test
+    void postWithForeignOriginIsBlocked() throws Exception {
+        ensureTopic();
+        given().header("HX-Request", "true").header("Origin", "https://evil.example")
+                .formParam("mode", "RAW").formParam("value", "x")
+                .post("/topics/" + TOPIC + "/produce").then().statusCode(403)
+                .body(containsString("Request blocked: cross-site request"));
+        given().header("HX-Request", "true").header("Referer", "https://evil.example/page")
+                .formParam("mode", "RAW").formParam("value", "x")
+                .post("/topics/" + TOPIC + "/produce").then().statusCode(403);
+    }
+
+    @Test
+    void postWithMatchingOriginPasses() throws Exception {
+        ensureTopic();
+        given().header("HX-Request", "true").header("Origin", "http://localhost:" + io.restassured.RestAssured.port)
+                .formParam("mode", "RAW").formParam("value", "x")
+                .post("/topics/" + TOPIC + "/produce").then().statusCode(200);
     }
 
     @Test

@@ -1,0 +1,11 @@
+<div class="success" role="status">
+  <p>Offsets of group {groupId} were reset:</p>
+  <table class="meta">
+    <thead><tr><th>Topic</th><th>Partition</th><th>New offset</th></tr></thead>
+    <tbody>
+    {#for l in lines}
+      <tr><td>{l.topic}</td><td>{l.partition}</td><td>{l.offset}</td></tr>
+    {/for}
+    </tbody>
+  </table>
+</div>
