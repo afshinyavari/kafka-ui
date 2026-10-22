@@ -44,7 +44,7 @@ public class TlsMaterialHolder implements AutoCloseable {
         this(config.tls().certFile(), config.tls().keyFile(), config.tls().caFile());
     }
 
-    TlsMaterialHolder(Optional<Path> cert, Optional<Path> key, Path ca) {
+    public TlsMaterialHolder(Optional<Path> cert, Optional<Path> key, Path ca) {
         this.cert = cert;
         this.key = key;
         this.ca = ca;
