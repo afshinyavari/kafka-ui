@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsSpec;
@@ -23,18 +24,26 @@ import se.afshin.yavari.kafka.ui.security.Credentials;
 @ApplicationScoped
 public class ResetOffsetsService {
 
-    @Inject KafkaClients clients;
+    private final Function<Credentials, Admin> admins;
+
+    @Inject
+    public ResetOffsetsService(KafkaClients clients) {
+        this(clients::admin);
+    }
+
+    ResetOffsetsService(Function<Credentials, Admin> admins) {
+        this.admins = admins;
+    }
 
     /** @return the new committed offset per partition, ordered by partition */
     public Map<TopicPartition, Long> reset(Credentials credentials, ResetRequest req) {
         String what = "consumer group " + req.groupId();
         try {
-            Admin admin = clients.admin(credentials);
+            Admin admin = admins.apply(credentials);
             var state = admin.describeConsumerGroups(java.util.List.of(req.groupId())).all().get()
                     .get(req.groupId()).groupState();
             if (state != GroupState.EMPTY && state != GroupState.DEAD) {
-                throw new UserErrorException(new UserError("Group is active",
-                        "Stop all consumers in group " + req.groupId() + " before resetting offsets.", 409));
+                throw activeConflict(req.groupId());
             }
             Set<TopicPartition> targets = targets(admin, req);
             Map<TopicPartition, Long> starts = offsets(admin, targets, OffsetSpec.earliest());
@@ -68,6 +77,9 @@ public class ResetOffsetsService {
         } catch (UserErrorException e) {
             throw e;
         } catch (Exception e) {
+            if (becameActive(e)) {
+                throw activeConflict(req.groupId());
+            }
             if (e.getCause() instanceof org.apache.kafka.common.errors.UnknownTopicOrPartitionException) {
                 throw invalid("Topic " + req.topic() + " or one of the requested partitions does not exist.");
             }
@@ -99,6 +111,26 @@ public class ResetOffsetsService {
             result.put(e.getKey(), e.getValue().offset());
         }
         return result;
+    }
+
+    /** A consumer may join between the state check and the alter; Kafka then refuses with one of these. */
+    private static boolean becameActive(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof org.apache.kafka.common.errors.GroupNotEmptyException
+                    || t instanceof org.apache.kafka.common.errors.UnknownMemberIdException
+                    || t instanceof org.apache.kafka.common.errors.RebalanceInProgressException) {
+                return true;
+            }
+            if (t.getCause() == t) {
+                break;
+            }
+        }
+        return false;
+    }
+
+    private static UserErrorException activeConflict(String groupId) {
+        return new UserErrorException(new UserError("Group is active",
+                "Stop all consumers in group " + groupId + " before resetting offsets.", 409));
     }
 
     private static UserErrorException invalid(String message) {

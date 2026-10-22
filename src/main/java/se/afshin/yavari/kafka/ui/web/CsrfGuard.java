@@ -1,5 +1,6 @@
 package se.afshin.yavari.kafka.ui.web;
 
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -19,21 +20,34 @@ public class CsrfGuard {
     private static final Set<String> SAFE = Set.of("GET", "HEAD", "OPTIONS");
 
     @ServerRequestFilter
-    public Response check(ContainerRequestContext request) {
-        if (SAFE.contains(request.getMethod().toUpperCase(Locale.ROOT))) {
-            return null;
-        }
-        if (!"true".equalsIgnoreCase(request.getHeaderString("HX-Request"))
-                || !sameOrigin(request.getHeaderString("Host"), request.getHeaderString("Origin"),
-                        request.getHeaderString("Referer"))) {
+    public Response check(ContainerRequestContext request, HttpServerRequest http) {
+        Response blocked = decide(request.getMethod(), request.getHeaderString("HX-Request"),
+                authority(http, request), request.getHeaderString("Origin"), request.getHeaderString("Referer"));
+        if (blocked != null) {
             LOG.warnf("Blocked %s %s: missing HX-Request header or foreign origin", request.getMethod(),
                     request.getUriInfo().getPath());
-            return Response.status(Response.Status.FORBIDDEN).type(MediaType.TEXT_HTML)
-                    .entity("<div class=\"error\" role=\"alert\"><h2>Request blocked</h2>"
-                            + "<p>Request blocked: cross-site request</p></div>")
-                    .build();
         }
-        return null;
+        return blocked;
+    }
+
+    /** @return the 403 response, or null when the request may proceed */
+    static Response decide(String method, String hxRequest, String authority, String origin, String referer) {
+        if (SAFE.contains(method.toUpperCase(Locale.ROOT))) {
+            return null;
+        }
+        if ("true".equalsIgnoreCase(hxRequest) && sameOrigin(authority, origin, referer)) {
+            return null;
+        }
+        return Response.status(Response.Status.FORBIDDEN).type(MediaType.TEXT_HTML)
+                .entity("<div class=\"error\" role=\"alert\"><h2>Request blocked</h2>"
+                        + "<p>Request blocked: cross-site request</p></div>")
+                .build();
+    }
+
+    /** Host:port as resolved by Quarkus (honours proxy forwarding when enabled), falling back to the Host header. */
+    private static String authority(HttpServerRequest http, ContainerRequestContext request) {
+        var authority = http.authority();
+        return authority != null ? authority.toString() : request.getHeaderString("Host");
     }
 
     static boolean sameOrigin(String host, String origin, String referer) {

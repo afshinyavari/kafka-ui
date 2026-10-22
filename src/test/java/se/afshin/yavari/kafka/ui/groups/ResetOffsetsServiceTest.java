@@ -100,4 +100,75 @@ class ResetOffsetsServiceTest {
             assertThat(committed("rs-active-g", "rs-active")).isEqualTo(2);
         }
     }
+
+    /** The real admin, except that altering offsets fails as if a consumer joined after the state check. */
+    private org.apache.kafka.clients.admin.Admin adminFailingAlter(Throwable failure) {
+        var real = clients.admin(CREDS);
+        return (org.apache.kafka.clients.admin.Admin) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[] {org.apache.kafka.clients.admin.Admin.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("alterConsumerGroupOffsets")) {
+                        return failingAlterResult(failure);
+                    }
+                    try {
+                        return method.invoke(real, args);
+                    } catch (java.lang.reflect.InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
+    }
+
+    /** The result's constructor is package-private; build one whose future fails with the given error. */
+    private static org.apache.kafka.clients.admin.AlterConsumerGroupOffsetsResult failingAlterResult(Throwable failure)
+            throws Exception {
+        var future = new org.apache.kafka.common.internals.KafkaFutureImpl<
+                java.util.Map<TopicPartition, org.apache.kafka.common.protocol.Errors>>();
+        future.completeExceptionally(failure instanceof java.util.concurrent.ExecutionException ? failure.getCause()
+                : failure);
+        var ctor = org.apache.kafka.clients.admin.AlterConsumerGroupOffsetsResult.class
+                .getDeclaredConstructor(org.apache.kafka.common.KafkaFuture.class);
+        ctor.setAccessible(true);
+        return ctor.newInstance(future);
+    }
+
+    @Test void groupBecomingActiveDuringAlterIsConflict() throws Exception {
+        prepare("rs-race-g", "rs-race", 4);
+        Throwable[] failures = {
+            new java.util.concurrent.ExecutionException(new org.apache.kafka.common.errors.GroupNotEmptyException("x")),
+            new org.apache.kafka.common.errors.UnknownMemberIdException("x"),
+            new java.util.concurrent.ExecutionException(
+                    new org.apache.kafka.common.errors.RebalanceInProgressException("x"))};
+        for (Throwable failure : failures) {
+            var racing = new ResetOffsetsService(c -> adminFailingAlter(failure));
+            assertThatThrownBy(() -> racing.reset(CREDS, request("rs-race-g", "rs-race", ResetTo.LATEST, null, null)))
+                    .isInstanceOfSatisfying(UserErrorException.class, e -> {
+                        assertThat(e.error().httpStatus()).isEqualTo(409);
+                        assertThat(e.error().message())
+                                .isEqualTo("Stop all consumers in group rs-race-g before resetting offsets.");
+                    });
+        }
+        assertThat(committed("rs-race-g", "rs-race")).isEqualTo(4);
+    }
+
+    @Test void otherTopicsOffsetsAreUntouched() throws Exception {
+        GroupFixtures.topicWith(clients, "rs-keep-a", 10);
+        GroupFixtures.topicWith(clients, "rs-keep-b", 10);
+        var member = GroupFixtures.member("rs-keep-g", "rs-keep-a");
+        member.unsubscribe();
+        member.subscribe(java.util.List.of("rs-keep-a", "rs-keep-b"));
+        long deadline = System.currentTimeMillis() + 30_000;
+        while (member.assignment().size() < 2 && System.currentTimeMillis() < deadline) {
+            member.poll(java.time.Duration.ofMillis(200));
+        }
+        member.commitSync(java.util.Map.of(
+                new TopicPartition("rs-keep-a", 0), new org.apache.kafka.clients.consumer.OffsetAndMetadata(6),
+                new TopicPartition("rs-keep-b", 0), new org.apache.kafka.clients.consumer.OffsetAndMetadata(7)));
+        member.close();
+        GroupFixtures.awaitEmpty(clients, "rs-keep-g");
+
+        resets.reset(CREDS, request("rs-keep-g", "rs-keep-a", ResetTo.EARLIEST, null, null));
+
+        assertThat(committed("rs-keep-g", "rs-keep-a")).isZero();
+        assertThat(committed("rs-keep-g", "rs-keep-b")).isEqualTo(7);
+    }
 }
