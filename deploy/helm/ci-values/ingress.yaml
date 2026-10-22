@@ -1,0 +1,35 @@
+# OIDC behind a generic Ingress instead of an OpenShift Route; two replicas need a state secret.
+replicaCount: 2
+image:
+  repository: registry.example.com/kafka/kafka-ui
+  tag: "1.2.3"
+kafka:
+  bootstrapServers: my-cluster-kafka-bootstrap.kafka.svc:9093
+registry:
+  url: https://apicurio-proxy.kafka.svc/apis/registry/v3
+tls:
+  ca:
+    existingSecret: ca-bundle
+oidc:
+  authServerUrl: https://keycloak.example.com/realms/my-realm
+  clientId: kafka-ui
+  clientSecret:
+    existingSecret: kafka-ui-oidc
+  stateSecret:
+    existingSecret: kafka-ui-oidc
+    key: state-secret
+route:
+  enabled: false
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: kafka-ui.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: kafka-ui-tls
+      hosts: [kafka-ui.example.com]
+podDisruptionBudget:
+  enabled: true
