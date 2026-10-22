@@ -33,6 +33,7 @@ ingress). The chart creates no secrets: CA bundle, OIDC secrets and (mtls) clien
 | `tls.ca.existingSecret` / `.key` | **required** / `ca.crt` | CA bundle, mounted as `/etc/kafka-ui/ca/ca.pem` |
 | `tls.client.existingSecret` / `.certKey` / `.keyKey` | - / `tls.crt` / `tls.key` | mtls only; key must be PKCS#8 |
 | `certManager.enabled` | `false` | mtls only: create a `Certificate` (PKCS8); `secretName` defaults to `<fullname>-client`; set `issuerRef.name` |
+| `certManager.issuerRef.name` / `.kind` / `.group` | - / `Issuer` / `cert-manager.io` | the issuer; `kind` and `group` of an external issuer (e.g. `AWSPCAClusterIssuer` / `awspca.cert-manager.io`) work too |
 | `certManager.privateKey.algorithm` | `RSA` | `RSA`, `ECDSA` or `Ed25519` |
 | `oidc.authServerUrl`, `oidc.clientId` | **required in oidc** | |
 | `oidc.clientSecret.existingSecret` / `.key` | - / `client-secret` | `QUARKUS_OIDC_CREDENTIALS_SECRET` via `secretKeyRef` |

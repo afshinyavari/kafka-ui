@@ -29,6 +29,8 @@ spec:
     rotationPolicy: {{ .Values.certManager.privateKey.rotationPolicy }}
   issuerRef:
     name: {{ required "certManager.issuerRef.name is required when certManager.enabled" .Values.certManager.issuerRef.name | quote }}
-    kind: {{ .Values.certManager.issuerRef.kind }}
-    group: {{ .Values.certManager.issuerRef.group }}
+    kind: {{ default "Issuer" .Values.certManager.issuerRef.kind | quote }}
+    {{- with .Values.certManager.issuerRef.group }}
+    group: {{ . | quote }}
+    {{- end }}
 {{- end }}

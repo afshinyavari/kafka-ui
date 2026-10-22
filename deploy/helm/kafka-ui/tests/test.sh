@@ -193,6 +193,12 @@ echo "== default image"
 yq 'del(.image)' "$CI/oidc.yaml" >"$OUT/noimage-values.yaml"
 render defimg "$OUT/noimage-values.yaml" && eq "default image is Docker Hub :appVersion" defimg Deployment '.spec.template.spec.containers[0].image' "docker.io/alfeenz/kafka-ui:0.2.0"
 
+echo "== issuerRef group"
+render extiss "$CI/mtls-certmanager.yaml" --set certManager.issuerRef.kind=AWSPCAClusterIssuer --set certManager.issuerRef.group=awspca.cert-manager.io && \
+  eq "external issuer kind/group" extiss Certificate '.spec.issuerRef.kind + "/" + .spec.issuerRef.group' "AWSPCAClusterIssuer/awspca.cert-manager.io"
+render nogroup "$CI/mtls-certmanager.yaml" --set certManager.issuerRef.group= && \
+  eq "empty group is omitted" nogroup Certificate '.spec.issuerRef | has("group")' "false"
+
 echo "== failure messages"
 fails "empty image.repository" 'image\.repository must not be empty' -f "$CI/oidc.yaml" --set image.repository=
 fails "mtls without client secret" 'tls\.client\.existingSecret|certManager\.enabled' -f "$CI/mtls-existing-secret.yaml" --set tls.client.existingSecret=
