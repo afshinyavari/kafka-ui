@@ -5,7 +5,7 @@
     <tr>
       <td>{c.name}</td>
       <td>{c.value}</td>
-      <td>{#if c.isDefault}<span class="badge">default</span>{#else}<span class="badge badge-accent">overridden</span>{/if}</td>
+      <td>{#if c.overridden}<span class="badge badge-accent">overridden</span>{#else}<span class="badge">default</span>{/if}</td>
     </tr>
   {/for}
   </tbody>

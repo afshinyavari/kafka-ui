@@ -8,9 +8,9 @@
       <td>{p.leader}</td>
       <td>{p.replicas.size}</td>
       <td>{p.isr.size}</td>
-      <td>{p.startOffset}</td>
-      <td>{p.endOffset}</td>
-      <td>{p.endOffset - p.startOffset}</td>
+      <td>{p.startOffset ?: "–"}</td>
+      <td>{p.endOffset ?: "–"}</td>
+      <td>{p.messages ?: "–"}</td>
     </tr>
   {/for}
   </tbody>

@@ -82,18 +82,32 @@ class TopicsResourceTest {
 
     @Test void overviewShowsPartitions() throws Exception {
         ensureTopics();
+        // partition, leader, replicas, in sync, first offset, last offset, messages
         given().header("HX-Request", "true").get("/topics/orders/overview").then().statusCode(200)
                 .body(not(containsString("<html")))
-                .body(containsString("Partitions"));
+                .body(matchesPattern("(?s).*<td>0</td>\\s*<td>\\d+</td>\\s*<td>1</td>\\s*<td>1</td>\\s*<td>0</td>\\s*<td>2</td>\\s*<td>2</td>.*"))
+                .body(matchesPattern("(?s).*<td>2</td>\\s*<td>\\d+</td>\\s*<td>1</td>\\s*<td>1</td>\\s*<td>0</td>\\s*<td>1</td>\\s*<td>1</td>.*"));
     }
 
-    @Test void settingsMarkOverriddenAndDefault() throws Exception {
+    @Test void settingsMarkOverriddenAndInheritedPerRow() throws Exception {
         ensureTopics();
         given().header("HX-Request", "true").get("/topics/orders/settings").then().statusCode(200)
-                .body(containsString("retention.ms"))
-                .body(containsString("123456"))
-                .body(containsString("overridden"))
-                .body(containsString("default"));
+                .body(matchesPattern("(?s).*<td>retention\\.ms</td>\\s*<td>123456</td>\\s*<td><span class=\"badge badge-accent\">overridden</span></td>.*"))
+                .body(matchesPattern("(?s).*<td>cleanup\\.policy</td>\\s*<td>delete</td>\\s*<td><span class=\"badge\">default</span></td>.*"));
+    }
+
+    @Test void htmxTabClickReturnsTabBarWithNewActiveTab() throws Exception {
+        ensureTopics();
+        given().header("HX-Request", "true").get("/topics/orders/settings").then()
+                .header("Vary", containsString("HX-Request"))
+                .body(matchesPattern("(?s).*class=\"active\">Settings</a>.*"))
+                .body(not(containsString("class=\"active\">Overview")));
+    }
+
+    @Test void historyRestoreGetsFullPage() throws Exception {
+        ensureTopics();
+        given().header("HX-Request", "true").header("HX-History-Restore-Request", "true")
+                .get("/topics/orders/settings").then().body(containsString("<html"));
     }
 
     @Test void settingsAreReadOnly() throws Exception {

@@ -51,10 +51,16 @@ public class TopicService {
             List<TopicRow> rows = new ArrayList<>();
             for (String name : names) {
                 TopicDescription d = descriptions.get(name);
-                long count = 0;
+                Long count = 0L;
                 for (var p : d.partitions()) {
                     var tp = new TopicPartition(name, p.partition());
-                    count += ends.get(tp) - starts.get(tp);
+                    Long s = starts.get(tp);
+                    Long en = ends.get(tp);
+                    if (s == null || en == null) {
+                        count = null;
+                        break;
+                    }
+                    count += en - s;
                 }
                 int rf = d.partitions().isEmpty() ? 0 : d.partitions().get(0).replicas().size();
                 rows.add(new TopicRow(name, d.partitions().size(), rf, count, d.isInternal()));
@@ -87,7 +93,7 @@ public class TopicService {
             for (ConfigEntry e : admin.describeConfigs(List.of(resource)).all().get().get(resource).entries()) {
                 String value = e.isSensitive() ? MASKED : e.value();
                 configs.put(e.name(), new ConfigRow(e.name(), value,
-                        e.source() == ConfigEntry.ConfigSource.DEFAULT_CONFIG));
+                        e.source() == ConfigEntry.ConfigSource.DYNAMIC_TOPIC_CONFIG));
             }
             return new TopicInfo(topic, partitions, configs, Permissions.canProduce(d));
         } catch (Exception e) {

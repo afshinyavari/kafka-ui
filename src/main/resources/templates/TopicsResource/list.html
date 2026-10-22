@@ -18,7 +18,7 @@
       <td><a href="/topics/{t.name}">{t.name}</a>{#if t.internal} <span class="badge">internal</span>{/if}</td>
       <td>{t.partitions}</td>
       <td>{t.replicationFactor}</td>
-      <td>{t.messageCount}</td>
+      <td>{t.messageCount ?: "–"}</td>
     </tr>
   {#else}
     <tr><td colspan="4" class="muted">No topics found.</td></tr>
