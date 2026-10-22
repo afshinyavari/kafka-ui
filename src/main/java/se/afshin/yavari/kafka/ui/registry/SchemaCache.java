@@ -13,7 +13,7 @@ import se.afshin.yavari.kafka.ui.security.Credentials;
  * never cached, so a permission change or an outage is seen on the next call.
  */
 @ApplicationScoped
-public class SchemaCache {
+public class SchemaCache implements SchemaLookup {
 
     static final Duration FOUND_TTL = Duration.ofMinutes(10);
     static final Duration NOT_FOUND_TTL = Duration.ofMinutes(1);
@@ -37,6 +37,7 @@ public class SchemaCache {
         this.clock = clock;
     }
 
+    @Override
     public Lookup get(Credentials credentials, IdKind kind, long id) {
         Key key = new Key(credentials.cacheScope(), kind, id);
         Instant now = clock.get();
