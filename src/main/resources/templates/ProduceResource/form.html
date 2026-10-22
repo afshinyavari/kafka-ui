@@ -1,8 +1,7 @@
 <div class="modal-backdrop" id="produce-modal">
   <div class="modal" role="dialog" aria-labelledby="produce-title">
     <h2 id="produce-title">Produce message to {name}</h2>
-    <form hx-post="/topics/{name}/produce" hx-target="#produce-result" hx-swap="innerHTML"
-          hx-on::before-swap="if (event.detail.xhr.status >= 400) { event.detail.shouldSwap = true; event.detail.isError = false; }">
+    <form hx-post="/topics/{name}/produce" hx-target="#produce-result" hx-swap="innerHTML">
       <div class="search-fields">
         <label>Format
           <select name="mode" onchange="document.getElementById('produce-schema').hidden = this.value !== 'AVRO'">

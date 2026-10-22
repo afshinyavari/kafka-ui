@@ -31,6 +31,15 @@ class LayoutMtlsTest {
                 .isLessThan(java.time.Duration.ofSeconds(25));
     }
 
+    /** htmx 2 does not swap 4xx/5xx by default; the layout makes error fragments show for every htmx request. */
+    @Test
+    void layoutConfiguresHtmxToSwapErrorResponses() {
+        given().redirects().follow(false).get("/test-errors/user").then()
+                .body(containsString("<meta name=\"htmx-config\" content='{\"responseHandling\":["
+                        + "{\"code\":\"204\",\"swap\":false},{\"code\":\"[23]..\",\"swap\":true},"
+                        + "{\"code\":\"[45]..\",\"swap\":true,\"error\":true}]}'>"));
+    }
+
     @Test
     void staticAssetsArePublic() {
         given().get("/vendor/htmx.min.js").then().statusCode(200);
