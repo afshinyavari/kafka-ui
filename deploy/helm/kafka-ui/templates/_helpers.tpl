@@ -40,7 +40,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{- define "kafka-ui.image" -}}
-{{- $repo := required "image.repository is required (no default registry)" .Values.image.repository -}}
+{{- $repo := required "image.repository must not be empty" .Values.image.repository -}}
 {{- printf "%s:%v" $repo (default .Chart.AppVersion (.Values.image.tag | toString | default "")) -}}
 {{- end }}
 

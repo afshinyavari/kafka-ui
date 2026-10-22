@@ -65,7 +65,7 @@ render oidc "$CI/oidc.yaml" && {
   eq "no certificate in oidc" oidc Certificate '.kind' ""
   eq "no PDB by default" oidc PodDisruptionBudget '.kind' ""
   eq "no NetworkPolicy by default" oidc NetworkPolicy '.kind' ""
-  eq "image default tag is appVersion" oidc Deployment '.spec.template.spec.containers[0].image' "image-registry.openshift-image-registry.svc:5000/kafka-ui/kafka-ui:1.0.0-SNAPSHOT"
+  eq "image default tag is appVersion" oidc Deployment '.spec.template.spec.containers[0].image' "image-registry.openshift-image-registry.svc:5000/kafka-ui/kafka-ui:main"
   eq "service port named http" oidc Service '.spec.ports[0].name + "/" + (.spec.ports[0].port|tostring)' "http/8080"
   eq "checksum/config annotation set" oidc Deployment '.spec.template.metadata.annotations["checksum/config"] | length' "64"
   eq "liveness probe" oidc Deployment '.spec.template.spec.containers[0].livenessProbe.httpGet.path' "/q/health/live"
@@ -189,8 +189,12 @@ render rt "$CI/oidc.yaml" --set route.tls=null && eq "route tls rendered even wh
 fails "route passthrough rejected by schema" 'termination' -f "$CI/oidc.yaml" --set route.tls.termination=passthrough
 helm install kafka-ui "$CHART" -f "$CI/oidc.yaml" --set oidc.clientSecret.existingSecret= --dry-run=client 2>/dev/null | grep -q 'oidc.clientSecret.existingSecret is not set' && ok "NOTES warns when client secret unset" || bad "NOTES warns when client secret unset"
 
+echo "== default image"
+yq 'del(.image)' "$CI/oidc.yaml" >"$OUT/noimage-values.yaml"
+render defimg "$OUT/noimage-values.yaml" && eq "default image is Docker Hub :main" defimg Deployment '.spec.template.spec.containers[0].image' "docker.io/alfeenz/kafka-ui:main"
+
 echo "== failure messages"
-fails "missing image.repository" 'image\.repository is required' -f "$CI/oidc.yaml" --set image.repository=
+fails "empty image.repository" 'image\.repository must not be empty' -f "$CI/oidc.yaml" --set image.repository=
 fails "mtls without client secret" 'tls\.client\.existingSecret|certManager\.enabled' -f "$CI/mtls-existing-secret.yaml" --set tls.client.existingSecret=
 fails "oidc without clientId" 'oidc\.clientId is required' -f "$CI/oidc.yaml" --set oidc.clientId=
 fails "oidc without authServerUrl" 'oidc\.authServerUrl is required' -f "$CI/oidc.yaml" --set oidc.authServerUrl=
