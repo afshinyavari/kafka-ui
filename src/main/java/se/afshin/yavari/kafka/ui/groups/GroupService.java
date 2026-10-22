@@ -15,6 +15,7 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.DescribeConsumerGroupsOptions;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsSpec;
+import org.apache.kafka.clients.admin.ListGroupsOptions;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.GroupState;
@@ -37,7 +38,7 @@ public class GroupService {
         try {
             Admin admin = clients.admin(credentials);
             String f = filter == null ? "" : filter.trim().toLowerCase(Locale.ROOT);
-            List<String> ids = admin.listConsumerGroups().all().get().stream()
+            List<String> ids = admin.listGroups(ListGroupsOptions.forConsumerGroups()).all().get().stream()
                     .map(l -> l.groupId())
                     .filter(id -> f.isEmpty() || id.toLowerCase(Locale.ROOT).contains(f))
                     .sorted().toList();
@@ -52,7 +53,7 @@ public class GroupService {
         String what = "the consumer groups of topic " + topic;
         try {
             Admin admin = clients.admin(credentials);
-            List<String> ids = admin.listConsumerGroups().all().get().stream()
+            List<String> ids = admin.listGroups(ListGroupsOptions.forConsumerGroups()).all().get().stream()
                     .map(l -> l.groupId()).sorted().toList();
             return rows(admin, ids, topic);
         } catch (Exception e) {
