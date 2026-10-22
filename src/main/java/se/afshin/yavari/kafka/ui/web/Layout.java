@@ -15,6 +15,11 @@ public final class Layout {
     private Layout() {
     }
 
+    /** Content version for static asset URLs (cache busting). */
+    public static String assetVersion() {
+        return AssetVersion.current();
+    }
+
     public static Mode mode() {
         return Arc.container().instance(KafkaUiConfig.class).get().mode();
     }
