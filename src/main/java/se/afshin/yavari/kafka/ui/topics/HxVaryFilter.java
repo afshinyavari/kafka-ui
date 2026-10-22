@@ -10,7 +10,8 @@ import jakarta.ws.rs.ext.Provider;
 public class HxVaryFilter implements ContainerResponseFilter {
     @Override
     public void filter(ContainerRequestContext request, ContainerResponseContext response) {
-        if (request.getUriInfo().getPath().startsWith("/topics")) {
+        String path = request.getUriInfo().getPath();
+        if (path.startsWith("/topics") || path.startsWith("/acls") || path.startsWith("/schemas")) {
             response.getHeaders().putSingle("Vary", "HX-Request, HX-History-Restore-Request");
         }
     }

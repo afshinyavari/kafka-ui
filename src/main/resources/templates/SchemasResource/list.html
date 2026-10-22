@@ -1,0 +1,35 @@
+{#include layout}
+{#title}Schema Registry - Kafka UI{/title}
+{#content}
+<h1>Schema Registry</h1>
+<div class="toolbar">
+  <input type="search" name="q" value="{q}" placeholder="Search by name"
+         hx-get="/schemas" hx-trigger="keyup changed delay:300ms, search" hx-target="#schemas-table">
+</div>
+<div id="schemas-table">
+{#fragment id=table}
+<table>
+  <thead><tr><th>Name</th><th>Group</th><th>Artifact id</th><th>Type</th><th>Modified</th></tr></thead>
+  <tbody>
+  {#for a in page.items}
+    <tr>
+      <td><a href="/schemas/{a.groupId}/{a.artifactId}">{a.name ?: a.artifactId}</a></td>
+      <td>{a.groupId}</td>
+      <td>{a.artifactId}</td>
+      <td><span class="badge">{a.artifactType}</span></td>
+      <td>{a.modifiedOn ?: '-'}</td>
+    </tr>
+  {#else}
+    <tr><td colspan="5" class="muted">No schemas found.</td></tr>
+  {/for}
+  </tbody>
+</table>
+<p class="muted">
+  {#if page.hasPrevious}<a href="/schemas?offset={page.previousOffset}" hx-get="/schemas?offset={page.previousOffset}" hx-include="[name=q]" hx-target="#schemas-table">Previous</a>{/if}
+  {#if page.hasNext}<a href="/schemas?offset={page.nextOffset}" hx-get="/schemas?offset={page.nextOffset}" hx-include="[name=q]" hx-target="#schemas-table">Next</a>{/if}
+  {page.total} schemas
+</p>
+{/fragment}
+</div>
+{/content}
+{/include}

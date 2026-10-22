@@ -8,8 +8,14 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import se.afshin.yavari.kafka.ui.registry.Page;
+import se.afshin.yavari.kafka.ui.registry.RegistrySchema;
+import se.afshin.yavari.kafka.ui.web.Htmx;
 import se.afshin.yavari.kafka.ui.kafka.UserError;
 import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
 import se.afshin.yavari.kafka.ui.registry.ArtifactSummary;
@@ -19,15 +25,24 @@ import se.afshin.yavari.kafka.ui.registry.RegistryException;
 import se.afshin.yavari.kafka.ui.registry.VersionSummary;
 import se.afshin.yavari.kafka.ui.security.CredentialsProvider;
 
-/** Schema registry routes. For now only the htmx fragments used by the produce form's schema picker. */
+/** Read-only schema registry pages, plus the htmx fragments used by the produce form's schema picker. */
 @Path("/schemas")
 @Produces(MediaType.TEXT_HTML)
 public class SchemasResource {
 
     private static final int PICKER_LIMIT = 50;
+    private static final int PAGE_SIZE = 20;
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     @CheckedTemplate
     static class Templates {
+        static native TemplateInstance list(Page<ArtifactSummary> page, String q);
+
+        static native TemplateInstance list$table(Page<ArtifactSummary> page, String q);
+
+        static native TemplateInstance detail(String group, String artifact, List<VersionSummary> versions,
+                RegistrySchema schema, String content, String codeClass);
+
         static native TemplateInstance pickerArtifacts(List<ArtifactSummary> artifacts);
 
         static native TemplateInstance pickerVersions(String group, String artifact, List<VersionSummary> versions);
@@ -35,6 +50,65 @@ public class SchemasResource {
 
     @Inject RegistryClient registry;
     @Inject CredentialsProvider credentials;
+
+    @Context HttpHeaders headers;
+
+    @GET
+    public TemplateInstance list(@QueryParam("q") String q, @QueryParam("offset") Integer offset) {
+        int off = offset == null || offset < 0 ? 0 : offset;
+        Page<ArtifactSummary> page;
+        try {
+            page = registry.searchArtifacts(credentials.current(), q, off, PAGE_SIZE);
+        } catch (RegistryException e) {
+            throw new UserErrorException(pageError(e.failure()));
+        }
+        String query = q == null ? "" : q;
+        return Htmx.isFragment(headers) ? Templates.list$table(page, query) : Templates.list(page, query);
+    }
+
+    @GET
+    @Path("{group}/{artifact}")
+    public TemplateInstance detail(
+            @PathParam("group") String group,
+            @PathParam("artifact") String artifact,
+            @QueryParam("version") String version) {
+        try {
+            var creds = credentials.current();
+            var versions = registry.versions(creds, group, artifact).reversed();
+            if (versions.isEmpty()) {
+                throw new UserErrorException(pageError(new Lookup.NotFound()));
+            }
+            String selected = version == null || version.isBlank() ? versions.get(0).version() : version;
+            var schema = registry.version(creds, group, artifact, selected);
+            return Templates.detail(group, artifact, versions, schema, pretty(schema.content()),
+                    codeClass(schema.type()));
+        } catch (RegistryException e) {
+            throw new UserErrorException(pageError(e.failure()));
+        }
+    }
+
+    private static String pretty(String content) {
+        try {
+            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(JSON.readTree(content));
+        } catch (Exception e) {
+            return content;
+        }
+    }
+
+    private static String codeClass(String type) {
+        return "AVRO".equalsIgnoreCase(type) || "JSON".equalsIgnoreCase(type) ? "language-json" : "language-plaintext";
+    }
+
+    private static UserError pageError(Lookup failure) {
+        if (failure instanceof Lookup.NotFound) {
+            return new UserError("Not found", "That schema does not exist in the registry.", 404);
+        }
+        if (failure instanceof Lookup.Denied) {
+            return new UserError("Access denied", "You don't have permission to read this schema.", 403);
+        }
+        return new UserError("Schema registry unavailable",
+                "The schema registry could not be reached. Please try again later.", 502);
+    }
 
     @GET
     @Path("search")

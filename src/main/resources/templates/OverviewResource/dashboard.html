@@ -2,6 +2,13 @@
 {#title}Dashboard - Kafka UI{/title}
 {#content}
 <h1>Dashboard</h1>
-<p class="muted">Cluster overview.</p>
+<table class="meta">
+  <tr><th>Cluster id</th><td id="cluster-id">{cluster.clusterId}</td></tr>
+  <tr><th>Controller</th><td id="controller">{cluster.controller}</td></tr>
+  <tr><th>Brokers</th><td id="broker-count">{cluster.brokers}</td></tr>
+  <tr><th>Topics</th><td id="topic-count">{cluster.topics}</td></tr>
+  <tr><th>Partitions</th><td id="partition-count">{cluster.partitions}</td></tr>
+  <tr><th>Under-replicated partitions</th><td id="urp-count">{cluster.underReplicatedPartitions}</td></tr>
+</table>
 {/content}
 {/include}

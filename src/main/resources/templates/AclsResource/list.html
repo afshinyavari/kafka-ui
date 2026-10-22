@@ -1,0 +1,40 @@
+{#include layout}
+{#title}ACLs - Kafka UI{/title}
+{#content}
+<h1>ACLs</h1>
+<form class="toolbar" hx-get="/acls" hx-target="#acls-table" hx-trigger="keyup changed delay:300ms from:find input, change from:find select, search">
+  <input type="search" name="principal" value="{filter.principal}" placeholder="Principal">
+  <input type="search" name="name" value="{filter.name}" placeholder="Resource name contains">
+  <select name="type" aria-label="Resource type">
+    <option value="">All resource types</option>
+    {#for t in types}<option value="{t}"{#if t == filter.type} selected{/if}>{t}</option>{/for}
+  </select>
+  <select name="operation" aria-label="Operation">
+    <option value="">All operations</option>
+    {#for o in operations}<option value="{o}"{#if o == filter.operation} selected{/if}>{o}</option>{/for}
+  </select>
+</form>
+<div id="acls-table">
+{#fragment id=table}
+<table>
+  <thead><tr><th>Principal</th><th>Resource type</th><th>Pattern</th><th>Resource name</th><th>Operation</th><th>Permission</th><th>Host</th></tr></thead>
+  <tbody>
+  {#for a in acls}
+    <tr>
+      <td>{a.principal}</td>
+      <td>{a.resourceType}</td>
+      <td>{a.patternType}</td>
+      <td>{a.resourceName}</td>
+      <td>{a.operation}</td>
+      <td><span class="badge">{a.permission}</span></td>
+      <td>{a.host}</td>
+    </tr>
+  {#else}
+    <tr><td colspan="7" class="muted">No ACLs found.</td></tr>
+  {/for}
+  </tbody>
+</table>
+{/fragment}
+</div>
+{/content}
+{/include}

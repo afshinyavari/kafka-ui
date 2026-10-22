@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class LayoutMtlsTest {
     @Test
     void dashboardIsReachableWithoutLoginAndShowsBanner() {
-        given().redirects().follow(false).get("/").then().statusCode(200)
+        given().redirects().follow(false).get("/test-errors/user").then().statusCode(403)
                 .body(containsString("mTLS mode – no login"))
                 .body(containsString("href=\"/topics\""))
                 .body(containsString("href=\"/consumers\""))

@@ -1,0 +1,26 @@
+{#include layout}
+{#title}{artifact} - Kafka UI{/title}
+{#content}
+<h1>{artifact} <span class="badge badge-accent">{schema.type}</span></h1>
+<p class="muted">Group {group} · version {schema.version}</p>
+<p>Versions:
+  {#for v in versions}
+    {#if v.version == schema.version}<strong>{v.version}</strong>{#else}<a href="/schemas/{group}/{artifact}?version={v.version}">{v.version}</a>{/if}
+  {/for}
+</p>
+<pre><code class="{codeClass}">{content}</code></pre>
+{#if !schema.references.isEmpty}
+<h2>References</h2>
+<table>
+  <thead><tr><th>Name</th><th>Group</th><th>Artifact</th><th>Version</th></tr></thead>
+  <tbody>
+  {#for r in schema.references}
+    <tr><td>{r.name}</td><td>{r.groupId}</td>
+      <td><a href="/schemas/{r.groupId}/{r.artifactId}?version={r.version}">{r.artifactId}</a></td><td>{r.version}</td></tr>
+  {/for}
+  </tbody>
+</table>
+{/if}
+<script>hljs.highlightAll();</script>
+{/content}
+{/include}

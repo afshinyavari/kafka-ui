@@ -1,0 +1,16 @@
+{#include layout}
+{#title}Brokers - Kafka UI{/title}
+{#content}
+<h1>Brokers</h1>
+<table>
+  <thead><tr><th>Broker id</th><th>Host</th><th>Rack</th><th>Leader partitions</th></tr></thead>
+  <tbody>
+  {#for b in brokers}
+    <tr><td>{b.id}</td><td>{b.address}</td><td>{b.rack ?: '-'}</td><td>{b.leaderPartitions}</td></tr>
+  {#else}
+    <tr><td colspan="4" class="muted">No brokers found.</td></tr>
+  {/for}
+  </tbody>
+</table>
+{/content}
+{/include}
