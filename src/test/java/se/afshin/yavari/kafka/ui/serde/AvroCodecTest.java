@@ -55,4 +55,32 @@ class AvroCodecTest {
         Schema schema = AvroCodec.parse(s, r -> address);
         assertThat(schema.getField("addr").schema().getName()).isEqualTo("Address");
     }
+
+    @Test
+    void decimalBytesAndFixedFieldsDecodeOnAvro112() throws Exception {
+        Schema schema = new Schema.Parser().parse("""
+                {"type":"record","name":"Pay","fields":[
+                  {"name":"price","type":{"type":"bytes","logicalType":"decimal","precision":10,"scale":2}},
+                  {"name":"raw","type":"bytes"},
+                  {"name":"code","type":{"type":"fixed","name":"Code","size":2}}]}""");
+        GenericData.Record r = new GenericData.Record(schema);
+        r.put("price", java.nio.ByteBuffer.wrap(new java.math.BigInteger("1234").toByteArray()));
+        r.put("raw", java.nio.ByteBuffer.wrap("ab".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        r.put("code", new GenericData.Fixed(schema.getField("code").schema(), "xy".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        var enc = EncoderFactory.get().binaryEncoder(out, null);
+        new GenericDatumWriter<GenericData.Record>(schema).write(r, enc);
+        enc.flush();
+        String json = AvroCodec.toJson(schema, out.toByteArray(), false);
+        assertThat(json).contains("\"raw\":\"ab\"").contains("\"code\":\"xy\"").contains("\"price\"");
+
+        // encoding side: decimal and bytes work; allegro 0.2.15 does not support fixed (reported, not a LinkageError)
+        Schema noFixed = new Schema.Parser().parse("""
+                {"type":"record","name":"Pay2","fields":[
+                  {"name":"price","type":{"type":"bytes","logicalType":"decimal","precision":10,"scale":2}},
+                  {"name":"raw","type":"bytes"}]}""");
+        assertThat(AvroCodec.fromJson(noFixed, "{\"price\":12.34,\"raw\":\"ab\"}")).isNotEmpty();
+        assertThatThrownBy(() -> AvroCodec.fromJson(schema, "{\"price\":12.34,\"raw\":\"ab\",\"code\":\"xy\"}"))
+                .isInstanceOf(AvroJsonException.class);
+    }
 }

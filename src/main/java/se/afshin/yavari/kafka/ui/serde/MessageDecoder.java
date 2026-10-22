@@ -105,7 +105,8 @@ public class MessageDecoder {
                 return sniff(data, List.of("Not valid XML"));
             }
             default:
-                return new Decoded(Format.TEXT, new String(data, StandardCharsets.UTF_8), "Shown as text" + why,
+                return new Decoded(Format.TEXT, new String(data, StandardCharsets.UTF_8),
+                        "Shown as text" + why + (decodeUtf8(data, 0) == null ? " – invalid UTF-8 replaced" : ""),
                         Optional.empty());
         }
     }
@@ -178,7 +179,7 @@ public class MessageDecoder {
                             String json = prettyOrRaw(AvroCodec.toJson(schema, body, jsonEncoded));
                             return new Decoded(Format.AVRO, json, "Avro – " + where + " " + origin(ref),
                                     Optional.of(ref));
-                        } catch (RuntimeException e) {
+                        } catch (RuntimeException | LinkageError e) {
                             notes.add("Avro decoding failed (" + where + " " + origin(ref) + "): " + message(e));
                             return null;
                         }
@@ -311,17 +312,20 @@ public class MessageDecoder {
         return prettyJson(json, false).orElse(json);
     }
 
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
+
     static String hexdump(byte[] data) {
         int n = Math.min(data.length, HEX_LIMIT);
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(n * 4 + 128);
         for (int off = 0; off < n; off += 16) {
-            sb.append(String.format("%08x  ", off));
-            StringBuilder ascii = new StringBuilder();
+            for (int shift = 28; shift >= 0; shift -= 4) {
+                sb.append(HEX[(off >>> shift) & 0xf]);
+            }
+            sb.append("  ");
             for (int i = 0; i < 16; i++) {
                 if (off + i < n) {
                     int b = data[off + i] & 0xff;
-                    sb.append(String.format("%02x ", b));
-                    ascii.append(b >= 0x20 && b < 0x7f ? (char) b : '.');
+                    sb.append(HEX[b >>> 4]).append(HEX[b & 0xf]).append(' ');
                 } else {
                     sb.append("   ");
                 }
@@ -329,7 +333,12 @@ public class MessageDecoder {
                     sb.append(' ');
                 }
             }
-            sb.append(" |").append(ascii).append("|\n");
+            sb.append(" |");
+            for (int i = off; i < Math.min(off + 16, n); i++) {
+                int b = data[i] & 0xff;
+                sb.append(b >= 0x20 && b < 0x7f ? (char) b : '.');
+            }
+            sb.append("|\n");
         }
         if (data.length > n) {
             sb.append("… truncated, showing first ").append(n).append(" of ").append(data.length).append(" bytes\n");

@@ -219,4 +219,41 @@ class MessageDecoderTest {
         assertThat(d.explanation()).contains("Cannot show as Avro").contains("No schema reference");
         assertThat(d.ref()).isEqualTo(Optional.empty());
     }
+
+    @Test
+    void trailingBytesAfterFourByteCandidateFallThroughToEightByte() throws Exception {
+        lookups.put("CONTENT_ID:0", new Lookup.Found(new RegistrySchema("AVRO", "\"int\"", "g", "ints", "1", List.of())));
+        lookups.put("GLOBAL_ID:7", new Lookup.Found(AVRO));
+        Decoded d = value(WireFormat.frame(IdKind.GLOBAL_ID, 7, avroBody(false)), new RecordHeaders());
+        assertThat(d.format()).isEqualTo(Format.AVRO);
+        assertThat(d.explanation()).contains("8-byte globalId");
+        assertThat(d.text()).contains("o-1");
+    }
+
+    @Test
+    void framedJsonSchemaPayload() {
+        lookups.put("CONTENT_ID:5", new Lookup.Found(new RegistrySchema("JSON", "{}", "shop", "evt", "1", List.of())));
+        Decoded d = value(WireFormat.frame(IdKind.CONTENT_ID, 5, "{\"a\":1}".getBytes(StandardCharsets.UTF_8)),
+                new RecordHeaders());
+        assertThat(d.format()).isEqualTo(Format.JSON_SCHEMA);
+        assertThat(d.text()).isEqualTo("{\n  \"a\" : 1\n}");
+        assertThat(d.explanation()).contains("from payload (4-byte contentId)");
+    }
+
+    @Test
+    void manualTextOnInvalidUtf8SaysSo() {
+        Decoded d = decoder.decodeAs(CREDS, new byte[] {(byte) 0xff, 'a'}, new RecordHeaders(), false, Format.TEXT);
+        assertThat(d.explanation()).contains("invalid UTF-8 replaced");
+    }
+
+    @Test
+    void hexdumpFormatIsStable() {
+        byte[] data = new byte[17];
+        for (int i = 0; i < 17; i++) {
+            data[i] = (byte) (0x41 + i);
+        }
+        assertThat(MessageDecoder.hexdump(data)).isEqualTo(
+                "00000000  41 42 43 44 45 46 47 48  49 4a 4b 4c 4d 4e 4f 50  |ABCDEFGHIJKLMNOP|\n"
+                        + "00000010  51                                                |Q|\n");
+    }
 }

@@ -25,24 +25,12 @@ public final class XmlPretty {
             return Optional.empty();
         }
         try {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            dbf.setXIncludeAware(false);
-            dbf.setExpandEntityReferences(false);
-            dbf.setNamespaceAware(true);
-            DocumentBuilder db = dbf.newDocumentBuilder();
+            DocumentBuilder db = DBF.newDocumentBuilder();
             db.setErrorHandler(null);
             Document doc = db.parse(new InputSource(new StringReader(text)));
             stripBlankText(doc.getDocumentElement());
 
-            TransformerFactory tf = TransformerFactory.newInstance();
-            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
-            Transformer t = tf.newTransformer();
+            Transformer t = TF.newTransformer();
             t.setOutputProperty(OutputKeys.INDENT, "yes");
             t.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
             t.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
@@ -52,6 +40,41 @@ public final class XmlPretty {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    private static final DocumentBuilderFactory DBF = documentBuilderFactory();
+    private static final TransformerFactory TF = transformerFactory();
+
+    private static DocumentBuilderFactory documentBuilderFactory() {
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            dbf.setXIncludeAware(false);
+            dbf.setExpandEntityReferences(false);
+            dbf.setNamespaceAware(true);
+            return dbf;
+        } catch (Exception e) {
+            throw new IllegalStateException("Cannot configure a secure XML parser", e);
+        }
+    }
+
+    private static TransformerFactory transformerFactory() {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        try {
+            tf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        } catch (Exception ignored) {
+            // output only; the input is already a parsed DOM without DTD
+        }
+        try {
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        } catch (Exception ignored) {
+            // implementation does not support these attributes
+        }
+        return tf;
     }
 
     private static void stripBlankText(Node node) {
