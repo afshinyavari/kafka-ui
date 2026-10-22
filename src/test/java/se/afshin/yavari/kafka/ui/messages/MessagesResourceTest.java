@@ -227,7 +227,8 @@ class MessagesResourceTest {
     @Test
     void streamsBeyondTheLimitEndWithFriendlyError() throws Exception {
         ensureTopic();
-        QuarkusMock.installMockForType(new StreamLimiter(32, 0), StreamLimiter.class);
+        // mTLS mode: only the global cap applies
+        QuarkusMock.installMockForType(new StreamLimiter(0, 32), StreamLimiter.class);
         for (String stream : List.of("search", "tail")) {
             String body = given().get("/topics/" + TOPIC + "/messages/" + stream).then().statusCode(200)
                     .extract().asString();
