@@ -1,0 +1,28 @@
+{{- if .Values.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "kafka-ui.fullname" . }}
+  labels:
+    {{- include "kafka-ui.labels" . | nindent 4 }}
+  {{- with .Values.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.route.host }}
+  host: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.route.path }}
+  path: {{ . | quote }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ include "kafka-ui.fullname" . }}
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    {{- toYaml (default (dict "termination" "edge" "insecureEdgeTerminationPolicy" "Redirect") .Values.route.tls) | nindent 4 }}
+  wildcardPolicy: None
+{{- end }}

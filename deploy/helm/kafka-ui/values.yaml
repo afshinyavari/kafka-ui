@@ -1,0 +1,210 @@
+# Default values for the kafka-ui chart (OpenShift, restricted-v2 SCC compatible).
+
+# -- Authentication mode: `oidc` (default, production) or `mtls` (test environments only, NO login).
+mode: oidc
+
+image:
+  # -- REQUIRED. Image repository, e.g. image-registry.openshift-image-registry.svc:5000/<ns>/kafka-ui
+  repository: ""
+  # -- Image tag. Defaults to the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# -- Pull secrets, e.g. [{ name: my-registry-secret }]
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Number of replicas. More than one requires oidc.stateSecret (oidc mode).
+replicaCount: 1
+
+kafka:
+  # -- REQUIRED. Kafka bootstrap servers (KAFKA_UI_BOOTSTRAP_SERVERS).
+  bootstrapServers: ""
+
+registry:
+  # -- REQUIRED. Apicurio Registry v3 API URL, i.e. the proxy (KAFKA_UI_REGISTRY_URL),
+  # e.g. https://proxy/apis/registry/v3
+  url: ""
+
+tls:
+  ca:
+    # -- REQUIRED. Existing secret holding the PEM CA bundle (trust for Kafka and the registry proxy).
+    existingSecret: ""
+    # -- Key in that secret (mounted as /etc/kafka-ui/ca/ca.pem, KAFKA_UI_TLS_CA_FILE).
+    key: ca.crt
+  # Client certificate: mtls mode only (never mounted or configured in oidc mode).
+  client:
+    # -- Existing secret with the client certificate and PKCS#8 key. Required in mtls mode unless
+    # certManager.enabled (then certManager.secretName is used instead).
+    existingSecret: ""
+    # -- Key of the certificate (KAFKA_UI_TLS_CERT_FILE).
+    certKey: tls.crt
+    # -- Key of the private key, must be PKCS#8 (KAFKA_UI_TLS_KEY_FILE).
+    keyKey: tls.key
+
+# cert-manager issued client certificate (mtls mode only; ignored in oidc mode).
+certManager:
+  # -- Create a cert-manager Certificate; its secret (tls.crt/tls.key) is used as the client secret.
+  enabled: false
+  # -- Name of the secret cert-manager writes. Defaults to <fullname>-client.
+  secretName: ""
+  issuerRef:
+    name: ""
+    kind: Issuer
+    group: cert-manager.io
+  commonName: kafka-ui
+  # -- Optional SANs.
+  dnsNames: []
+  # -- Key usages. Must include `client auth`.
+  usages:
+    - client auth
+  duration: 2160h
+  renewBefore: 360h
+  privateKey:
+    # -- RSA, ECDSA or Ed25519. The encoding is always PKCS8 (the app requires PKCS#8).
+    algorithm: RSA
+    # -- Key size. Leave empty for the default (RSA 2048, ECDSA 256); never rendered for Ed25519.
+    size: null
+    rotationPolicy: Always
+
+# OIDC settings (mode: oidc).
+oidc:
+  # -- REQUIRED in oidc mode. Keycloak realm URL (QUARKUS_OIDC_AUTH_SERVER_URL).
+  authServerUrl: ""
+  # -- REQUIRED in oidc mode (QUARKUS_OIDC_CLIENT_ID).
+  clientId: ""
+  # Client secret, read from an existing secret (QUARKUS_OIDC_CREDENTIALS_SECRET).
+  clientSecret:
+    existingSecret: ""
+    key: client-secret
+  # State cookie secret (QUARKUS_OIDC_AUTHENTICATION_STATE_SECRET, min 32 chars).
+  # REQUIRED when replicaCount > 1, otherwise logins break when the callback hits another pod.
+  stateSecret:
+    existingSecret: ""
+    key: state-secret
+
+# Optional tuning, passed through as KAFKA_UI_* env vars. Only rendered when set;
+# the app's defaults (shown here) apply otherwise.
+config:
+  search: {}
+    # maxScanned: 100000          # KAFKA_UI_SEARCH_MAX_SCANNED
+    # maxMatches: 500             # KAFKA_UI_SEARCH_MAX_MATCHES
+    # regexTimeout: 100ms         # KAFKA_UI_SEARCH_REGEX_TIMEOUT
+    # defaultRange: 1h            # KAFKA_UI_SEARCH_DEFAULT_RANGE
+  tail: {}
+    # maxRows: 1000               # KAFKA_UI_TAIL_MAX_ROWS
+  streams: {}
+    # maxConcurrent: 32           # KAFKA_UI_STREAMS_MAX_CONCURRENT
+    # maxPerUser: 3               # KAFKA_UI_STREAMS_MAX_PER_USER (oidc mode only)
+  produce: {}
+    # idLocation: PAYLOAD         # KAFKA_UI_PRODUCE_ID_LOCATION: PAYLOAD | HEADERS
+    # idKind: CONTENT_ID          # KAFKA_UI_PRODUCE_ID_KIND: CONTENT_ID | GLOBAL_ID
+    # valueHeaderPrefix: "apicurio.value."   # KAFKA_UI_PRODUCE_VALUE_HEADER_PREFIX
+    # keyHeaderPrefix: "apicurio.key."       # KAFKA_UI_PRODUCE_KEY_HEADER_PREFIX
+
+# -- Extra env vars for the container (list of EnvVar).
+extraEnv: []
+# -- Extra envFrom sources (list of EnvFromSource).
+extraEnvFrom: []
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# OpenShift Route (route.openshift.io/v1).
+route:
+  enabled: true
+  # -- Optional host; the router generates one when empty.
+  host: ""
+  path: ""
+  annotations:
+    # Searches and live tails stream over SSE, so allow long-lived connections.
+    haproxy.router.openshift.io/timeout: 5m
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Generic Ingress, as an alternative to the Route.
+ingress:
+  enabled: false
+  className: ""
+  # Searches and live tails stream over SSE; for ingress-nginx use e.g.:
+  #   nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+  #   nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+  #   nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  annotations: {}
+  hosts:
+    - host: kafka-ui.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- e.g. [{ secretName: kafka-ui-tls, hosts: [kafka-ui.example.com] }]
+  tls: []
+
+serviceAccount:
+  create: true
+  # -- Defaults to the fullname when created, otherwise "default".
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+# No runAsUser/fsGroup: OpenShift (restricted-v2 SCC) assigns them.
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  # -- Verified: the image starts and serves with a read-only root filesystem and a writable /tmp.
+  # When true, an emptyDir is mounted at /tmp.
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    memory: 1Gi
+
+startupProbe:
+  httpGet:
+    path: /q/health/live
+    port: http
+  periodSeconds: 2
+  failureThreshold: 30
+livenessProbe:
+  httpGet:
+    path: /q/health/live
+    port: http
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /q/health/ready
+    port: http
+  periodSeconds: 10
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podDisruptionBudget:
+  enabled: false
+  # -- Set one of maxUnavailable / minAvailable (minAvailable: 1 blocks node drains with one replica).
+  maxUnavailable: 1
+  # minAvailable: 1
+
+networkPolicy:
+  enabled: false
+  # -- Peers allowed to reach the HTTP port. Default: the OpenShift router namespaces.
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress

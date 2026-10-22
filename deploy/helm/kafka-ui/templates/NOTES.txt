@@ -1,0 +1,34 @@
+Kafka UI {{ .Chart.AppVersion }} deployed as {{ include "kafka-ui.fullname" . }} (mode: {{ .Values.mode }}).
+{{- if eq .Values.mode "mtls" }}
+
+WARNING: mTLS mode is for TEST ENVIRONMENTS ONLY. There is no login: everyone who can reach
+the UI gets the rights of the UI's own client certificate, including produce and reset offsets.
+Use mode=oidc in production.
+{{- end }}
+{{- if and .Values.certManager.enabled (ne .Values.mode "mtls") }}
+
+Note: certManager.enabled is ignored in oidc mode (no client certificate is used).
+{{- end }}
+{{- if .Values.route.enabled }}
+
+Get the URL:
+  oc get route {{ include "kafka-ui.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='https://{.spec.host}{"\n"}'
+{{- else if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+
+URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+No Route or Ingress enabled. Reach it with:
+  oc port-forward svc/{{ include "kafka-ui.fullname" . }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+{{- end }}
+{{- if and (eq .Values.mode "oidc") (not .Values.oidc.clientSecret.existingSecret) }}
+
+WARNING: oidc.clientSecret.existingSecret is not set; QUARKUS_OIDC_CREDENTIALS_SECRET is not passed.
+This only works for a public OIDC client.
+{{- end }}
+{{- if eq .Values.mode "oidc" }}
+
+Register the redirect URI of the URL above in the Keycloak client "{{ .Values.oidc.clientId }}".
+{{- end }}

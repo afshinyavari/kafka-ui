@@ -1,0 +1,17 @@
+# Default-ish production scenario: OIDC login, OpenShift Route.
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/kafka-ui/kafka-ui
+kafka:
+  bootstrapServers: my-cluster-kafka-bootstrap.kafka.svc:9093
+registry:
+  url: https://apicurio-proxy.kafka.svc/apis/registry/v3
+tls:
+  ca:
+    existingSecret: ca-bundle
+    key: ca-bundle.pem
+oidc:
+  authServerUrl: https://keycloak.example.com/realms/my-realm
+  clientId: kafka-ui
+  clientSecret:
+    existingSecret: kafka-ui-oidc
+    key: client-secret

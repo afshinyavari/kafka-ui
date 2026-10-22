@@ -1,0 +1,45 @@
+{{- include "kafka-ui.validate" . -}}
+{{- $search := default dict .Values.config.search }}
+{{- $tail := default dict .Values.config.tail }}
+{{- $streams := default dict .Values.config.streams }}
+{{- $produce := default dict .Values.config.produce }}
+{{- $cfg := dict
+  "KAFKA_UI_SEARCH_MAX_SCANNED" $search.maxScanned
+  "KAFKA_UI_SEARCH_MAX_MATCHES" $search.maxMatches
+  "KAFKA_UI_SEARCH_REGEX_TIMEOUT" $search.regexTimeout
+  "KAFKA_UI_SEARCH_DEFAULT_RANGE" $search.defaultRange
+  "KAFKA_UI_TAIL_MAX_ROWS" $tail.maxRows
+  "KAFKA_UI_STREAMS_MAX_CONCURRENT" $streams.maxConcurrent
+  "KAFKA_UI_STREAMS_MAX_PER_USER" $streams.maxPerUser
+  "KAFKA_UI_PRODUCE_ID_LOCATION" $produce.idLocation
+  "KAFKA_UI_PRODUCE_ID_KIND" $produce.idKind
+  "KAFKA_UI_PRODUCE_VALUE_HEADER_PREFIX" $produce.valueHeaderPrefix
+  "KAFKA_UI_PRODUCE_KEY_HEADER_PREFIX" $produce.keyHeaderPrefix -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kafka-ui.fullname" . }}
+  labels:
+    {{- include "kafka-ui.labels" . | nindent 4 }}
+data:
+  KAFKA_UI_MODE: {{ .Values.mode | quote }}
+  KAFKA_UI_BOOTSTRAP_SERVERS: {{ .Values.kafka.bootstrapServers | quote }}
+  KAFKA_UI_REGISTRY_URL: {{ .Values.registry.url | quote }}
+  KAFKA_UI_TLS_CA_FILE: /etc/kafka-ui/ca/ca.pem
+  {{- if include "kafka-ui.isMtls" . }}
+  KAFKA_UI_TLS_CERT_FILE: /etc/kafka-ui/client/tls.crt
+  KAFKA_UI_TLS_KEY_FILE: /etc/kafka-ui/client/tls.key
+  {{- else }}
+  QUARKUS_OIDC_AUTH_SERVER_URL: {{ .Values.oidc.authServerUrl | quote }}
+  QUARKUS_OIDC_CLIENT_ID: {{ .Values.oidc.clientId | quote }}
+  {{- end }}
+  {{- if include "kafka-ui.exposed" . }}
+  # Behind a TLS-terminating router/ingress: the CSRF Origin check needs the forwarded host.
+  QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
+  QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: "true"
+  {{- end }}
+  {{- range $k, $v := $cfg }}
+  {{- if not (kindIs "invalid" $v) }}
+  {{ $k }}: {{ if kindIs "float64" $v }}{{ $v | int64 | toString | quote }}{{ else }}{{ $v | toString | quote }}{{ end }}
+  {{- end }}
+  {{- end }}

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: kafka-ui
+description: Stand-alone Kafka UI (Quarkus + htmx) for a Strimzi-based cluster, deployed to OpenShift
+type: application
+version: 0.1.0
+appVersion: "1.0.0-SNAPSHOT"
+keywords:
+  - kafka
+  - strimzi
+  - openshift

@@ -1,0 +1,34 @@
+{{- if and .Values.certManager.enabled (eq .Values.mode "mtls") }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kafka-ui.fullname" . }}-client
+  labels:
+    {{- include "kafka-ui.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "kafka-ui.clientSecretName" . }}
+  commonName: {{ .Values.certManager.commonName | quote }}
+  {{- with .Values.certManager.dnsNames }}
+  dnsNames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  usages:
+    {{- toYaml .Values.certManager.usages | nindent 4 }}
+  duration: {{ .Values.certManager.duration }}
+  renewBefore: {{ .Values.certManager.renewBefore }}
+  privateKey:
+    # The app requires PKCS#8 (BEGIN PRIVATE KEY).
+    encoding: PKCS8
+    algorithm: {{ .Values.certManager.privateKey.algorithm }}
+    {{- $alg := .Values.certManager.privateKey.algorithm }}
+    {{- if eq $alg "RSA" }}
+    size: {{ default 2048 .Values.certManager.privateKey.size | int64 }}
+    {{- else if eq $alg "ECDSA" }}
+    size: {{ default 256 .Values.certManager.privateKey.size | int64 }}
+    {{- end }}
+    rotationPolicy: {{ .Values.certManager.privateKey.rotationPolicy }}
+  issuerRef:
+    name: {{ required "certManager.issuerRef.name is required when certManager.enabled" .Values.certManager.issuerRef.name | quote }}
+    kind: {{ .Values.certManager.issuerRef.kind }}
+    group: {{ .Values.certManager.issuerRef.group }}
+{{- end }}
