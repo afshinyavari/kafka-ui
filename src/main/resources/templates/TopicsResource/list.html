@@ -1,21 +1,32 @@
 {#include layout}
 {#title}Topics - Kafka UI{/title}
+{#crumb}<span class="current">Topics</span>{/crumb}
 {#content}
-<h1>Topics</h1>
-<div class="toolbar">
-  <input type="search" name="q" value="{q}" placeholder="Search by topic name"
-         hx-get="/topics" hx-trigger="keyup changed delay:300ms, search" hx-target="#topics-table" hx-include="[name='internal']">
-  <label class="check"><input type="checkbox" name="internal" value="true" {#if internal}checked{/if}
-         hx-get="/topics" hx-trigger="change" hx-target="#topics-table" hx-include="[name='q']"> Show internal topics</label>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Topics</h1>
+    <p class="page-sub">Browse topics, their partitions and messages</p>
+  </div>
 </div>
-<div id="topics-table">
+<div class="card">
+  <div class="card-head">
+    <div class="toolbar w-full">
+      <label class="input-search w-full sm:w-80">{#include icons/search /}
+        <input type="search" name="q" value="{q}" placeholder="Search by topic name" aria-label="Search by topic name" class="input"
+               hx-get="/topics" hx-trigger="keyup changed delay:300ms, search" hx-target="#topics-table" hx-include="[name='internal']">
+      </label>
+      <label class="check sm:ml-auto"><input type="checkbox" name="internal" value="true" {#if internal}checked{/if}
+             hx-get="/topics" hx-trigger="change" hx-target="#topics-table" hx-include="[name='q']"> Show internal topics</label>
+    </div>
+  </div>
+  <div id="topics-table" class="table-wrap">
 {#fragment id=table}
-<table>
+<table class="tbl [&_td:first-child]:break-all" data-num="2 3 4">
   <thead><tr><th>Topic name</th><th>Partitions</th><th>Replication</th><th>Messages</th></tr></thead>
   <tbody>
   {#for t in topics}
     <tr>
-      <td><a href="/topics/{t.name}">{t.name}</a>{#if t.internal} <span class="badge">internal</span>{/if}</td>
+      <td><a href="/topics/{t.name}">{t.name}</a>{#if t.internal} <span class="badge badge-sm ml-1.5">internal</span>{/if}</td>
       <td>{t.partitions}</td>
       <td>{t.replicationFactor}</td>
       <td>{t.messageCount ?: "–"}</td>
@@ -26,6 +37,7 @@
   </tbody>
 </table>
 {/fragment}
+  </div>
 </div>
 {/content}
 {/include}

@@ -1,46 +1,60 @@
 {#include layout}
 {#title}{group.groupId} - Kafka UI{/title}
+{#crumb}<a href="/consumers">Consumers</a>{#include icons/chevron /}<span class="current">{group.groupId}</span>{/crumb}
 {#content}
-<p class="crumb"><a href="/consumers">Consumers</a> / </p>
-<h1>{group.groupId}</h1>
-<p>State: <span class="badge">{group.state}</span></p>
-<div class="toolbar">
+<div class="page-head">
+  <div class="min-w-0">
+    <h1 class="page-title">{group.groupId}</h1>
+    <p class="page-sub">State <span class="badge" data-state="{group.state}">{group.state}</span></p>
+  </div>
+  <div class="toolbar">
 {#if !group.canReset}
-  <button type="button" class="btn" disabled title="You don't have permission to reset offsets for this group">Reset offsets</button>
+    <button type="button" class="btn" disabled title="You don't have permission to reset offsets for this group">{#include icons/reset /}Reset offsets</button>
 {#else if group.active}
-  <button type="button" class="btn" disabled title="Stop all consumers in group {group.groupId} before resetting offsets.">Reset offsets</button>
+    <button type="button" class="btn" disabled title="Stop all consumers in group {group.groupId} before resetting offsets.">{#include icons/reset /}Reset offsets</button>
 {#else}
-  <button type="button" class="btn btn-primary" hx-get="/consumers/{group.groupId.urlEnc}/reset" hx-target="#reset-area" hx-swap="innerHTML">Reset offsets</button>
+    <button type="button" class="btn btn-primary" hx-get="/consumers/{group.groupId.urlEnc}/reset" hx-target="#reset-area" hx-swap="innerHTML">{#include icons/reset /}Reset offsets</button>
 {/if}
+  </div>
 </div>
 <div id="reset-area"></div>
-<h2>Members</h2>
-<table>
-  <thead><tr><th>Member id</th><th>Client id</th><th>Host</th><th>Assigned partitions</th></tr></thead>
-  <tbody>
-  {#for m in group.members}
-    <tr><td>{m.memberId}</td><td>{m.clientId}</td><td>{m.host}</td><td>{m.assignment}</td></tr>
-  {#else}
-    <tr><td colspan="4" class="muted">No active members.</td></tr>
-  {/for}
-  </tbody>
-</table>
-<h2>Committed offsets</h2>
-<table>
-  <thead><tr><th>Topic</th><th>Partition</th><th>Committed offset</th><th>Last offset</th><th>Lag</th></tr></thead>
-  <tbody>
-  {#for o in group.offsets}
-    <tr>
-      <td><a href="/topics/{o.topic}">{o.topic}</a></td>
-      <td>{o.partition}</td>
-      <td>{o.committed}</td>
-      <td>{o.end}</td>
-      <td>{o.lag}</td>
-    </tr>
-  {#else}
-    <tr><td colspan="5" class="muted">No committed offsets.</td></tr>
-  {/for}
-  </tbody>
-</table>
+<div class="space-y-6">
+  <section class="card">
+    <div class="card-head"><h2 class="card-title">Members</h2><span class="muted text-xs">{group.members.size}</span></div>
+    <div class="table-wrap">
+    <table class="tbl [&_td:first-child]:max-w-80 [&_td:first-child]:break-all" data-mono="1">
+      <thead><tr><th>Member id</th><th>Client id</th><th>Host</th><th>Assigned partitions</th></tr></thead>
+      <tbody>
+      {#for m in group.members}
+        <tr><td>{m.memberId}</td><td>{m.clientId}</td><td>{m.host}</td><td>{m.assignment}</td></tr>
+      {#else}
+        <tr><td colspan="4" class="muted">No active members.</td></tr>
+      {/for}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-head"><h2 class="card-title">Committed offsets</h2></div>
+    <div class="table-wrap">
+    <table class="tbl" data-num="2 3 4 5">
+      <thead><tr><th>Topic</th><th>Partition</th><th>Committed offset</th><th>Last offset</th><th>Lag</th></tr></thead>
+      <tbody>
+      {#for o in group.offsets}
+        <tr>
+          <td><a href="/topics/{o.topic}">{o.topic}</a></td>
+          <td>{o.partition}</td>
+          <td>{o.committed}</td>
+          <td>{o.end}</td>
+          <td>{o.lag}</td>
+        </tr>
+      {#else}
+        <tr><td colspan="5" class="muted">No committed offsets.</td></tr>
+      {/for}
+      </tbody>
+    </table>
+    </div>
+  </section>
+</div>
 {/content}
 {/include}

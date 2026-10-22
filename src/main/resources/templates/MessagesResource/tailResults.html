@@ -3,7 +3,7 @@
 {@java.lang.String error}
 {@int maxRows}
 {#if error}
-<div class="error" role="alert"><p>{error}</p></div>
+<div class="alert alert-error" role="alert">{#include icons/alert /}<p>{error}</p></div>
 {#else}
 <div id="search-stream" class="search-status" sse-connect="/topics/{name}/messages/tail?{form.tailQuery}" sse-close="done">
   <span sse-swap="progress">Connecting…</span>
@@ -22,10 +22,12 @@
   <div hidden sse-swap="done" hx-target="#search-stream" hx-swap="outerHTML"></div>
   <div hidden sse-swap="expired"></div>
 </div></template>
-<table class="results">
+<div class="table-wrap">
+<table class="tbl results" data-num="1 2">
   <thead><tr><th>Partition</th><th>Offset</th><th>Timestamp (UTC)</th><th>Key</th><th>Value</th></tr></thead>
   <tbody id="tail-rows" data-max-rows="{maxRows}"></tbody>
 </table>
+</div>
 {|<script>
   if (!window.tailTrim) {
     window.tailTrim = true;

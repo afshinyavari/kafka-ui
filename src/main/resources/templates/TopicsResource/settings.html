@@ -1,7 +1,8 @@
 {#if info.settingsDenied}
-<div class="error" role="alert"><p>{info.settingsDenied}</p></div>
+<div class="alert alert-warn" role="alert">{#include icons/warning /}<p>{info.settingsDenied}</p></div>
 {#else}
-<table>
+<div class="table-wrap">
+<table class="tbl [&_td:nth-child(2)]:break-all" data-mono="1 2">
   <thead><tr><th>Key</th><th>Value</th><th>Source</th></tr></thead>
   <tbody>
   {#for c in info.configs.values}
@@ -13,4 +14,5 @@
   {/for}
   </tbody>
 </table>
+</div>
 {/if}

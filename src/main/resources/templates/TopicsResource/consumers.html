@@ -1,10 +1,11 @@
-<table>
+<div class="table-wrap">
+<table class="tbl" data-num="3 4">
   <thead><tr><th>Group id</th><th>State</th><th>Members</th><th>Lag</th></tr></thead>
   <tbody>
   {#for g in groups}
     <tr>
       <td><a href="/consumers/{g.groupId.urlEnc}">{g.groupId}</a></td>
-      <td><span class="badge">{g.state}</span></td>
+      <td><span class="badge" data-state="{g.state}">{g.state}</span></td>
       <td>{g.members}</td>
       <td>{g.totalLag}</td>
     </tr>
@@ -13,3 +14,4 @@
   {/for}
   </tbody>
 </table>
+</div>

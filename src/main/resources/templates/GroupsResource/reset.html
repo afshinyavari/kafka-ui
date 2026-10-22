@@ -1,35 +1,48 @@
 {@se.afshin.yavari.kafka.ui.groups.GroupDetail group}
-<form class="reset-form" hx-post="/consumers/{group.groupId.urlEnc}/reset" hx-target="#reset-result" hx-swap="innerHTML"
-      hx-confirm="Reset the offsets of group {group.groupId}? Its consumers will resume from the new offsets.">
-  <h2>Reset offsets</h2>
-  {#if group.offsets.isEmpty}
-  <p class="muted">This group has no committed offsets to reset.</p>
-  {#else}
-  <div class="search-fields">
-    <label>Topic
-      <select name="topic">
-        {#for t in group.topics}<option value="{t}">{t}</option>{/for}
-      </select>
-    </label>
-    <label>Partitions (comma-separated, empty = all)
-      <input type="text" name="partitions" placeholder="all">
-    </label>
-    <label>Reset to
-      <select name="to" onchange="document.getElementById('reset-ts').hidden = this.value !== 'TIMESTAMP'; document.getElementById('reset-off').hidden = this.value !== 'OFFSET'">
-        <option value="EARLIEST">Earliest</option>
-        <option value="LATEST">Latest</option>
-        <option value="TIMESTAMP">Timestamp</option>
-        <option value="OFFSET">Offset</option>
-      </select>
-    </label>
-    <label id="reset-ts" hidden>Date and time (UTC)
-      <input type="datetime-local" name="timestamp">
-    </label>
-    <label id="reset-off" hidden>Offset
-      <input type="number" name="offset" min="0">
-    </label>
+<div class="modal-backdrop" id="reset-modal">
+  <div class="modal" role="dialog" aria-labelledby="reset-title">
+    <form class="reset-form" hx-post="/consumers/{group.groupId.urlEnc}/reset" hx-target="#reset-result" hx-swap="innerHTML"
+          hx-confirm="Reset the offsets of group {group.groupId}? Its consumers will resume from the new offsets.">
+      <div class="modal-head">
+        <h2 id="reset-title" class="modal-title">Reset offsets</h2>
+        <button type="button" class="btn btn-ghost btn-sm" aria-label="Close" onclick="document.getElementById('reset-modal').remove()">{#include icons/close /}</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted">Group <span class="font-medium text-ink">{group.groupId}</span></p>
+        {#if group.offsets.isEmpty}
+        <p class="muted">This group has no committed offsets to reset.</p>
+        {#else}
+        <div class="search-fields grid gap-4 sm:grid-cols-2">
+          <label class="field">Topic
+            <select name="topic" class="input">
+              {#for t in group.topics}<option value="{t}">{t}</option>{/for}
+            </select>
+          </label>
+          <label class="field"><span>Partitions<span class="field-hint">comma-separated, empty = all</span></span>
+            <input type="text" name="partitions" placeholder="all" class="input">
+          </label>
+          <label class="field">Reset to
+            <select name="to" class="input" onchange="document.getElementById('reset-ts').hidden = this.value !== 'TIMESTAMP'; document.getElementById('reset-off').hidden = this.value !== 'OFFSET'">
+              <option value="EARLIEST">Earliest</option>
+              <option value="LATEST">Latest</option>
+              <option value="TIMESTAMP">Timestamp</option>
+              <option value="OFFSET">Offset</option>
+            </select>
+          </label>
+          <label id="reset-ts" class="field" hidden>Date and time (UTC)
+            <input type="datetime-local" name="timestamp" class="input">
+          </label>
+          <label id="reset-off" class="field" hidden>Offset
+            <input type="number" name="offset" min="0" class="input">
+          </label>
+        </div>
+        {/if}
+        <div id="reset-result"></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn" onclick="document.getElementById('reset-modal').remove()">Close</button>
+        {#if !group.offsets.isEmpty}<button type="submit" class="btn btn-danger">{#include icons/reset /}Reset offsets</button>{/if}
+      </div>
+    </form>
   </div>
-  <div class="toolbar"><button type="submit" class="btn btn-primary">Reset offsets</button></div>
-  {/if}
-  <div id="reset-result"></div>
-</form>
+</div>

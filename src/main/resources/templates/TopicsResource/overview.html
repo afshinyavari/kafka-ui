@@ -1,5 +1,5 @@
-<h2>Partitions</h2>
-<table>
+<div class="table-wrap">
+<table class="tbl" data-num="1 2 3 4 5 6 7">
   <thead><tr><th>Partition</th><th>Leader</th><th>Replicas</th><th>In sync</th><th>First offset</th><th>Last offset</th><th>Messages</th></tr></thead>
   <tbody>
   {#for p in info.partitions}
@@ -15,3 +15,4 @@
   {/for}
   </tbody>
 </table>
+</div>

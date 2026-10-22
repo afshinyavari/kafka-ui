@@ -1,7 +1,7 @@
 <input type="hidden" name="group" value="{group}">
 <input type="hidden" name="artifact" value="{artifact}">
-<label>Version of {artifact}
-  <select name="version">
+<label class="field">Version of {artifact}
+  <select name="version" class="input">
     {#for v in versions}
     <option value="{v.version}">{v.version}</option>
     {/for}

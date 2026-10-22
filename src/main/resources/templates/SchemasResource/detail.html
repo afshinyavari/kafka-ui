@@ -1,25 +1,42 @@
 {#include layout}
 {#title}{artifact} - Kafka UI{/title}
+{#crumb}<a href="/schemas">Schema Registry</a>{#include icons/chevron /}<span class="current">{artifact}</span>{/crumb}
 {#content}
-<h1>{artifact} <span class="badge badge-accent">{schema.type}</span></h1>
-<p class="muted">Group {group} · version {schema.version}</p>
-<p>Versions:
-  {#for v in versions}
-    {#if v.version == schema.version}<strong>{v.version}</strong>{#else}<a href="/schemas/{group.urlEnc}/{artifact.urlEnc}?version={v.version.urlEnc}">{v.version}</a>{/if}
-  {/for}
-</p>
-<pre><code class="{codeClass}">{content}</code></pre>
+<div class="page-head">
+  <div class="min-w-0">
+    <h1 class="page-title flex flex-wrap items-center gap-3">{artifact} <span data-type="{schema.type}"><span class="badge badge-accent">{schema.type}</span></span></h1>
+    <p class="page-sub">Group {group} · version {schema.version}</p>
+  </div>
+</div>
+<div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_16rem]">
+  <section class="card min-w-0">
+    <div class="card-head"><h2 class="card-title">Schema</h2></div>
+    <div class="card-body"><div class="code-panel"><pre><code class="{codeClass}">{content}</code></pre></div></div>
+  </section>
+  <section class="card">
+    <div class="card-head"><h2 class="card-title">Versions</h2><span class="muted text-xs">{versions.size}</span></div>
+    <div class="flex flex-wrap gap-2 p-5">
+    {#for v in versions}
+      {#if v.version == schema.version}<span class="badge badge-accent" aria-current="true"><strong>{v.version}</strong></span>{#else}<a class="badge hover:border-primary hover:text-accent" href="/schemas/{group.urlEnc}/{artifact.urlEnc}?version={v.version.urlEnc}">{v.version}</a>{/if}
+    {/for}
+    </div>
+  </section>
+</div>
 {#if !schema.references.isEmpty}
-<h2>References</h2>
-<table>
-  <thead><tr><th>Name</th><th>Group</th><th>Artifact</th><th>Version</th></tr></thead>
-  <tbody>
-  {#for r in schema.references}
-    <tr><td>{r.name}</td><td>{r.groupId}</td>
-      <td><a href="/schemas/{r.groupId.urlEnc}/{r.artifactId.urlEnc}?version={r.version.urlEnc}">{r.artifactId}</a></td><td>{r.version}</td></tr>
-  {/for}
-  </tbody>
-</table>
+<section class="card mt-6">
+  <div class="card-head"><h2 class="card-title">References</h2></div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <thead><tr><th>Name</th><th>Group</th><th>Artifact</th><th>Version</th></tr></thead>
+    <tbody>
+    {#for r in schema.references}
+      <tr><td>{r.name}</td><td>{r.groupId}</td>
+        <td><a href="/schemas/{r.groupId.urlEnc}/{r.artifactId.urlEnc}?version={r.version.urlEnc}">{r.artifactId}</a></td><td>{r.version}</td></tr>
+    {/for}
+    </tbody>
+  </table>
+  </div>
+</section>
 {/if}
 <script>hljs.highlightAll();</script>
 {/content}

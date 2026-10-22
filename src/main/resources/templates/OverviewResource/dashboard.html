@@ -1,14 +1,20 @@
 {#include layout}
 {#title}Dashboard - Kafka UI{/title}
+{#crumb}<span class="current">Dashboard</span>{/crumb}
 {#content}
-<h1>Dashboard</h1>
-<table class="meta">
-  <tr><th>Cluster id</th><td id="cluster-id">{cluster.clusterId}</td></tr>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-sub">Cluster health at a glance</p>
+  </div>
+</div>
+<table class="stats">
+  <tr class="wide sm:col-span-2 xl:col-span-3"><th>Cluster id</th><td id="cluster-id">{cluster.clusterId}</td></tr>
   <tr><th>Controller</th><td id="controller">{cluster.controller}</td></tr>
   <tr><th>Brokers</th><td id="broker-count">{cluster.brokers}</td></tr>
   <tr><th>Topics</th><td id="topic-count">{cluster.topics}</td></tr>
   <tr><th>Partitions</th><td id="partition-count">{cluster.partitions}</td></tr>
-  <tr><th>Under-replicated partitions</th><td id="urp-count">{cluster.underReplicatedPartitions}</td></tr>
+  <tr{#if cluster.underReplicatedPartitions > 0} class="warn"{/if}><th>Under-replicated partitions</th><td id="urp-count">{cluster.underReplicatedPartitions}</td></tr>
 </table>
 {/content}
 {/include}

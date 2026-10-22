@@ -1,10 +1,14 @@
 {#include layout}
 {#title}{error.title} - Kafka UI{/title}
+{#crumb}<span class="current">Error</span>{/crumb}
 {#content}
 {#fragment id=box}
-<div class="error" role="alert">
-  <h2>{error.title}</h2>
-  <p>{error.message}</p>
+<div class="error alert alert-error" role="alert">
+  {#include icons/alert /}
+  <div class="min-w-0">
+    <h2 class="alert-title">{error.title}</h2>
+    <p>{error.message}</p>
+  </div>
 </div>
 {/fragment}
 {/content}

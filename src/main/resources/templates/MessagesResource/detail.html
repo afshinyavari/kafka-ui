@@ -1,53 +1,81 @@
 {#include layout}
 {#title}{name} {m.partition}/{m.offset} - Kafka UI{/title}
+{#crumb}<a href="/topics">Topics</a>{#include icons/chevron /}<a href="/topics/{name}">{name}</a>{#include icons/chevron /}<a href="/topics/{name}/messages">Messages</a>{#include icons/chevron /}<span class="current">{m.partition}/{m.offset}</span>{/crumb}
 {#content}
-<p class="crumb"><a href="/topics">Topics</a> / <a href="/topics/{name}">{name}</a> / <a href="/topics/{name}/messages">Messages</a> /</p>
-<h1>Partition {m.partition}, offset {m.offset}</h1>
-<table class="meta">
-  <tbody>
-    <tr><th>Partition</th><td>{m.partition}</td></tr>
-    <tr><th>Offset</th><td>{m.offset}</td></tr>
-    <tr><th>Timestamp (UTC)</th><td>{m.timestamp}</td></tr>
-  </tbody>
-</table>
-<form method="get" class="toolbar decode-as">
-  <label>Decode key as
-    <select name="keyAs" onchange="this.form.submit()">
-      <option value=""{#if keyAs.isEmpty} selected{/if}>Automatic</option>
-      {#for f in formats}
-      <option value="{f.name}"{#if keyAs == f.name} selected{/if}>{f.label}</option>
-      {/for}
-    </select>
-  </label>
-  <label>Decode value as
-    <select name="valueAs" onchange="this.form.submit()">
-      <option value=""{#if valueAs.isEmpty} selected{/if}>Automatic</option>
-      {#for f in formats}
-      <option value="{f.name}"{#if valueAs == f.name} selected{/if}>{f.label}</option>
-      {/for}
-    </select>
-  </label>
-  <noscript><button type="submit" class="btn">Apply</button></noscript>
-</form>
-<h2>Key</h2>
-<p class="muted explanation">{m.key.explanation}</p>
-<pre><code class="{m.key.codeClass}">{m.key.text}</code></pre>
-<h2>Value</h2>
-<p class="muted explanation">{m.value.explanation}</p>
-<pre><code class="{m.value.codeClass}">{m.value.text}</code></pre>
-<h2>Headers</h2>
+<div class="page-head">
+  <div class="min-w-0">
+    <h1 class="page-title">Partition {m.partition}, offset {m.offset}</h1>
+    <p class="page-sub">Message in <a href="/topics/{name}" class="font-medium text-accent hover:underline">{name}</a></p>
+  </div>
+</div>
+<form id="decode-as" method="get" class="decode-as"><noscript><button type="submit" class="btn">Apply</button></noscript></form>
+<div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+  <div class="min-w-0 space-y-6">
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title flex items-center gap-2">Key <span class="badge badge-sm" data-format="{m.key.format}">{m.key.format.label}</span></h2>
+        <label class="field flex-row items-center gap-2">Decode as
+          <select name="keyAs" form="decode-as" onchange="this.form.submit()" class="input h-8 w-auto text-xs">
+            <option value=""{#if keyAs.isEmpty} selected{/if}>Automatic</option>
+            {#for f in formats}
+            <option value="{f.name}"{#if keyAs == f.name} selected{/if}>{f.label}</option>
+            {/for}
+          </select>
+        </label>
+      </div>
+      <div class="card-body space-y-3">
+        <p class="alert alert-info explanation py-2 text-xs">{#include icons/info /}<span>{m.key.explanation}</span></p>
+        <div class="code-panel"><pre><code class="{m.key.codeClass}">{m.key.text}</code></pre></div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head">
+        <h2 class="card-title flex items-center gap-2">Value <span class="badge badge-sm" data-format="{m.value.format}">{m.value.format.label}</span></h2>
+        <label class="field flex-row items-center gap-2">Decode as
+          <select name="valueAs" form="decode-as" onchange="this.form.submit()" class="input h-8 w-auto text-xs">
+            <option value=""{#if valueAs.isEmpty} selected{/if}>Automatic</option>
+            {#for f in formats}
+            <option value="{f.name}"{#if valueAs == f.name} selected{/if}>{f.label}</option>
+            {/for}
+          </select>
+        </label>
+      </div>
+      <div class="card-body space-y-3">
+        <p class="alert alert-info explanation py-2 text-xs">{#include icons/info /}<span>{m.value.explanation}</span></p>
+        <div class="code-panel"><pre><code class="{m.value.codeClass}">{m.value.text}</code></pre></div>
+      </div>
+    </section>
+  </div>
+  <div class="space-y-6">
+    <section class="card">
+      <div class="card-head"><h2 class="card-title">Metadata</h2></div>
+      <dl class="dl card-body">
+        <dt>Partition</dt><dd>{m.partition}</dd>
+        <dt>Offset</dt><dd>{m.offset}</dd>
+        <dt>Timestamp (UTC)</dt><dd>{m.timestamp}</dd>
+        <dt>Key format</dt><dd>{m.key.format.label}</dd>
+        <dt>Value format</dt><dd>{m.value.format.label}</dd>
+      </dl>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2 class="card-title">Headers</h2><span class="muted text-xs">{m.headers.size}</span></div>
 {#if m.headers.isEmpty}
-<p class="muted">No headers</p>
+      <p class="muted px-5 py-6 text-center">No headers</p>
 {#else}
-<table>
-  <thead><tr><th>Key</th><th>Value</th></tr></thead>
-  <tbody>
-  {#for h in m.headers}
-    <tr><td>{h.key}</td><td>{h.value}</td></tr>
-  {/for}
-  </tbody>
-</table>
+      <div class="table-wrap">
+      <table class="tbl [&_td]:break-all" data-mono="2">
+        <thead><tr><th>Key</th><th>Value</th></tr></thead>
+        <tbody>
+        {#for h in m.headers}
+          <tr><td>{h.key}</td><td>{h.value}</td></tr>
+        {/for}
+        </tbody>
+      </table>
+      </div>
 {/if}
+    </section>
+  </div>
+</div>
 <script>hljs.highlightAll();</script>
 {/content}
 {/include}

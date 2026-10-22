@@ -1,4 +1,7 @@
-<div class="success" role="status">
-  <p>Message produced to partition {meta.partition}, offset {meta.offset}.</p>
-  <p><a href="/topics/{name}/messages/{meta.partition}/{meta.offset}">Open the message</a></p>
+<div class="alert alert-success" role="status">
+  {#include icons/check /}
+  <div>
+    <p>Message produced to partition {meta.partition}, offset {meta.offset}.</p>
+    <p><a href="/topics/{name}/messages/{meta.partition}/{meta.offset}">Open the message</a></p>
+  </div>
 </div>

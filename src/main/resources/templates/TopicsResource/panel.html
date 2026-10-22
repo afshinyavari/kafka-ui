@@ -4,7 +4,7 @@
   <a href="/topics/{name}/consumers" hx-get="/topics/{name}/consumers" hx-push-url="true" class="{#if tab == 'consumers'}active{/if}">Consumers</a>
   <a href="/topics/{name}/settings" hx-get="/topics/{name}/settings" hx-push-url="true" class="{#if tab == 'settings'}active{/if}">Settings</a>
 </nav>
-<div id="tab-panel">
+<div id="tab-panel" class="[&>.alert]:m-5">
 {#if tab == 'overview'}{#include TopicsResource/overview /}
 {#else if tab == 'settings'}{#include TopicsResource/settings /}
 {#else if tab == 'messages'}{#include MessagesResource/tab /}

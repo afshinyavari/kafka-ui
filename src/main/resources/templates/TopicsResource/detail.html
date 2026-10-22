@@ -1,17 +1,22 @@
 {#include layout}
 {#title}{name} - Kafka UI{/title}
+{#crumb}<a href="/topics">Topics</a>{#include icons/chevron /}<span class="current">{name}</span>{/crumb}
 {#content}
-<p class="crumb"><a href="/topics">Topics</a> / </p>
-<h1>{name}</h1>
-<div class="toolbar">
+<div class="page-head">
+  <div class="min-w-0">
+    <h1 class="page-title">{name}</h1>
+    <p class="page-sub">{info.partitions.size} {#if info.partitions.size == 1}partition{#else}partitions{/if}</p>
+  </div>
+  <div class="toolbar">
 {#if info.canProduce}
-  <button type="button" class="btn btn-primary" hx-get="/topics/{name}/produce" hx-target="#modal" hx-swap="innerHTML">Produce Message</button>
+    <button type="button" class="btn btn-primary" hx-get="/topics/{name}/produce" hx-target="#modal" hx-swap="innerHTML">{#include icons/send /}Produce Message</button>
 {#else}
-  <button type="button" class="btn" disabled title="You don't have Write permission on this topic">Produce Message</button>
+    <button type="button" class="btn" disabled title="You don't have Write permission on this topic">{#include icons/send /}Produce Message</button>
 {/if}
+  </div>
 </div>
 <div id="modal"></div>
-<div id="tab-area">
+<div id="tab-area" class="card">
 {#include TopicsResource/panel /}
 </div>
 {/content}

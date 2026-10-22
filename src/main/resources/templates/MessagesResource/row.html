@@ -2,6 +2,6 @@
   <td>{m.partition}</td>
   <td><a href="/topics/{topic}/messages/{m.partition}/{m.offset}" target="_blank" rel="noopener">{m.offset}</a></td>
   <td class="nowrap">{m.timestamp}</td>
-  <td class="preview">{m.keyPreview}</td>
-  <td class="preview">{m.valuePreview}</td>
+  <td class="preview" title="{m.keyPreview}">{#if m.key.format.name != 'NULL' && m.key.format.name != 'EMPTY'}<span class="badge badge-sm mr-1.5" data-format="{m.key.format}">{m.key.format.label}</span>{/if}{m.keyPreview}</td>
+  <td class="preview" title="{m.valuePreview}">{#if m.value.format.name != 'NULL' && m.value.format.name != 'EMPTY'}<span class="badge badge-sm mr-1.5" data-format="{m.value.format}">{m.value.format.label}</span>{/if}{m.valuePreview}</td>
 </tr>

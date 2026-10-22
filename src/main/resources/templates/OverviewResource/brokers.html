@@ -1,8 +1,15 @@
 {#include layout}
 {#title}Brokers - Kafka UI{/title}
+{#crumb}<span class="current">Brokers</span>{/crumb}
 {#content}
-<h1>Brokers</h1>
-<table>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Brokers</h1>
+    <p class="page-sub">{brokers.size} {#if brokers.size == 1}broker{#else}brokers{/if} in this cluster</p>
+  </div>
+</div>
+<div class="card table-wrap">
+<table class="tbl" data-num="1 4" data-mono="2">
   <thead><tr><th>Broker id</th><th>Host</th><th>Rack</th><th>Leader partitions</th></tr></thead>
   <tbody>
   {#for b in brokers}
@@ -12,5 +19,6 @@
   {/for}
   </tbody>
 </table>
+</div>
 {/content}
 {/include}

@@ -1,20 +1,29 @@
 {#include layout}
 {#title}Consumers - Kafka UI{/title}
+{#crumb}<span class="current">Consumers</span>{/crumb}
 {#content}
-<h1>Consumers</h1>
-<div class="toolbar">
-  <input type="search" name="q" value="{q}" placeholder="Search by group id"
-         hx-get="/consumers" hx-trigger="keyup changed delay:300ms, search" hx-target="#groups-table">
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Consumers</h1>
+    <p class="page-sub">Consumer groups, their state and lag</p>
+  </div>
 </div>
-<div id="groups-table">
+<div class="card">
+  <div class="card-head">
+    <label class="input-search w-full sm:w-80">{#include icons/search /}
+      <input type="search" name="q" value="{q}" placeholder="Search by group id" aria-label="Search by group id" class="input"
+             hx-get="/consumers" hx-trigger="keyup changed delay:300ms, search" hx-target="#groups-table">
+    </label>
+  </div>
+  <div id="groups-table" class="table-wrap">
 {#fragment id=table}
-<table>
+<table class="tbl [&_td:first-child]:break-all" data-num="3 4 5">
   <thead><tr><th>Group id</th><th>State</th><th>Members</th><th>Topics</th><th>Lag</th></tr></thead>
   <tbody>
   {#for g in groups}
     <tr>
       <td><a href="/consumers/{g.groupId.urlEnc}">{g.groupId}</a></td>
-      <td><span class="badge">{g.state}</span></td>
+      <td><span class="badge" data-state="{g.state}">{g.state}</span></td>
       <td>{g.members}</td>
       <td>{g.topics}</td>
       <td>{g.totalLag}</td>
@@ -25,6 +34,7 @@
   </tbody>
 </table>
 {/fragment}
+  </div>
 </div>
 {/content}
 {/include}
