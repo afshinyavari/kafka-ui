@@ -256,4 +256,41 @@ class MessageDecoderTest {
                 "00000000  41 42 43 44 45 46 47 48  49 4a 4b 4c 4d 4e 4f 50  |ABCDEFGHIJKLMNOP|\n"
                         + "00000010  51                                                |Q|\n");
     }
+
+    private static final String DEEP_XML = "<a>".repeat(5000) + "</a>".repeat(5000);
+
+    @Test
+    void deeplyNestedXmlFallsBackToText() {
+        Decoded auto = value(DEEP_XML);
+        assertThat(auto.format()).isEqualTo(Format.TEXT);
+        assertThat(auto.explanation()).isEqualTo("No schema reference – detected text");
+        Decoded forced = decoder.decodeAs(CREDS, DEEP_XML.getBytes(StandardCharsets.UTF_8), new RecordHeaders(),
+                false, Format.XML);
+        assertThat(forced.format()).isEqualTo(Format.TEXT);
+        assertThat(forced.explanation()).isEqualTo("Not valid XML – detected text");
+    }
+
+    @Test
+    void stackOverflowWhileDecodingFallsBackWithExplanation() {
+        var overflowing = new MessageDecoder((c, kind, id) -> {
+            throw new StackOverflowError();
+        }, (c, r) -> {
+            throw new IllegalStateException("no references expected");
+        });
+        Decoded d = overflowing.decode(CREDS, "{\"a\":1}".getBytes(StandardCharsets.UTF_8),
+                header(IdKind.CONTENT_ID, 42), false);
+        assertThat(d.format()).isEqualTo(Format.JSON);
+        assertThat(d.explanation()).startsWith("Decoding failed: StackOverflowError");
+    }
+
+    @Test
+    void stackOverflowInAvroDecodingIsExplained() throws Exception {
+        var withRef = new RegistrySchema("AVRO", ORDER, "shop", "orders-value", "3",
+                List.of(new RegistrySchema.Reference("shop.Money", "shop", "money", "1")));
+        var overflowing = new MessageDecoder((c, kind, id) -> new Lookup.Found(withRef), (c, r) -> {
+            throw new StackOverflowError();
+        });
+        Decoded d = overflowing.decode(CREDS, avroBody(false), header(IdKind.CONTENT_ID, 42), false);
+        assertThat(d.explanation()).contains("Avro decoding failed").contains("StackOverflowError");
+    }
 }

@@ -15,8 +15,13 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
-/** Pretty-prints XML. DTDs are rejected outright, so no entity (external or not) is ever resolved. */
+/**
+ * Pretty-prints XML. DTDs are rejected outright, so no entity (external or not) is ever resolved. Documents nested
+ * deeper than {@link #MAX_DEPTH} elements are not XML for display purposes (they would exhaust the stack).
+ */
 public final class XmlPretty {
+
+    static final int MAX_DEPTH = 1000;
 
     private XmlPretty() {}
 
@@ -37,7 +42,7 @@ public final class XmlPretty {
             StringWriter out = new StringWriter();
             t.transform(new DOMSource(doc), new StreamResult(out));
             return Optional.of(out.toString().strip());
-        } catch (Exception e) {
+        } catch (Exception | StackOverflowError e) {
             return Optional.empty();
         }
     }
@@ -55,6 +60,7 @@ public final class XmlPretty {
             dbf.setXIncludeAware(false);
             dbf.setExpandEntityReferences(false);
             dbf.setNamespaceAware(true);
+            dbf.setAttribute("jdk.xml.maxElementDepth", MAX_DEPTH);
             return dbf;
         } catch (Exception e) {
             throw new IllegalStateException("Cannot configure a secure XML parser", e);

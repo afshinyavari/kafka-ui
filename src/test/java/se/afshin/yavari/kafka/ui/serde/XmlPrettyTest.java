@@ -17,4 +17,12 @@ class XmlPrettyTest {
         assertThat(XmlPretty.pretty("hello")).isEmpty();
         assertThat(XmlPretty.pretty("<a><b></a>")).isEmpty();
     }
+
+    @Test
+    void deeplyNestedXmlIsRejectedWithoutStackOverflow() {
+        String deep = "<a>".repeat(5000) + "</a>".repeat(5000);
+        assertThat(XmlPretty.pretty(deep)).isEmpty();
+        String fine = "<a>".repeat(200) + "</a>".repeat(200);
+        assertThat(XmlPretty.pretty(fine)).isPresent();
+    }
 }

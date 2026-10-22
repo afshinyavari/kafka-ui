@@ -80,7 +80,7 @@ public class MessageDecoder {
                 return withRegistry(credentials, data, h, isKey, forced);
             }
             return manual(data, forced);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | StackOverflowError e) {
             return sniff(data, List.of("Decoding failed: " + message(e)));
         }
     }
@@ -179,7 +179,7 @@ public class MessageDecoder {
                             String json = prettyOrRaw(AvroCodec.toJson(schema, body, jsonEncoded));
                             return new Decoded(Format.AVRO, json, "Avro – " + where + " " + origin(ref),
                                     Optional.of(ref));
-                        } catch (RuntimeException | LinkageError e) {
+                        } catch (RuntimeException | LinkageError | StackOverflowError e) {
                             notes.add("Avro decoding failed (" + where + " " + origin(ref) + "): " + message(e));
                             return null;
                         }
