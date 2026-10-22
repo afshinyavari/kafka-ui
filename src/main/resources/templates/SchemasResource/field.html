@@ -1,12 +1,18 @@
-<div id="produce-{role}">
+<div id="produce-{role}" class="field">
+  <div class="flex items-center justify-between gap-3">
+    <label for="produce-{role}-text">{#if role == 'key'}Key<span class="field-hint">optional</span>{#else}Value{/if}</label>
+    <span class="flex min-w-0 items-center gap-2">
+      <span id="produce-{role}-file" class="truncate font-normal text-ink-faint" aria-live="polite"></span>
+      <label class="btn btn-ghost btn-sm">{#include icons/upload /}Load file
+        <input type="file" class="sr-only" accept=".json,.xml,.txt,.avsc,application/json,application/xml,text/xml,text/plain"
+               onchange="var f = this.files[0], ta = document.getElementById('produce-{role}-text'), st = document.getElementById('produce-{role}-file'); this.value = ''; if (!f) return; if (f.size > 10485760) { st.textContent = f.name + ' is larger than 10 MB'; return; } f.text().then(function (t) { ta.value = t; st.textContent = f.name; });">
+      </label>
+    </span>
+  </div>
   {#if role == 'key'}
-  <label class="field"><span>Key<span class="field-hint">optional</span></span>
-    <textarea name="key" rows="2" spellcheck="false" class="input font-mono" placeholder="Leave empty for no key. For Avro, pick a schema and fill in the generated JSON.">{text}</textarea>
-  </label>
+  <textarea id="produce-key-text" name="key" rows="2" spellcheck="false" class="input font-mono" placeholder="Leave empty for no key. For Avro, pick a schema and fill in the generated JSON.">{text}</textarea>
   {#else}
-  <label class="field">Value
-    <textarea name="value" rows="12" spellcheck="false" class="input font-mono" placeholder="Paste the message here. For Avro, pick a schema and fill in the generated JSON.">{text}</textarea>
-  </label>
+  <textarea id="produce-value-text" name="value" rows="12" spellcheck="false" class="input font-mono" placeholder="Paste the message here, or load a file. For Avro, pick a schema and fill in the generated JSON.">{text}</textarea>
   {/if}
   <input type="hidden" name="{role}Template" value="{skeleton}">
 </div>

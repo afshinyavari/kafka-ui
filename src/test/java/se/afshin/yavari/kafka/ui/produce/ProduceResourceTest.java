@@ -189,7 +189,9 @@ class ProduceResourceTest {
                 .body(containsString("name=\"keyTemplate\""))
                 .body(containsString("name=\"valueTemplate\""))
                 .body(containsString("<template id=\"produce-header-row\">"))
-                .body(containsString("aria-label=\"Remove header\""));
+                .body(containsString("aria-label=\"Remove header\""))
+                .body(containsString("<input type=\"file\" class=\"sr-only\""))
+                .body(containsString("document.getElementById('produce-value-text')"));
     }
 
     @Test
@@ -227,7 +229,7 @@ class ProduceResourceTest {
         given().header("HX-Request", "true").formParam("keyVersion", "3").formParam("key", "")
                 .formParam("keyTemplate", "")
                 .post("/schemas/default/order-value/template?role=key").then().statusCode(200)
-                .body(containsString("<div id=\"produce-key\">"))
+                .body(containsString("<div id=\"produce-key\" class=\"field\">"))
                 .body(containsString("name=\"keyTemplate\""))
                 .body(containsString("&quot;amount&quot; : 0.0"));
     }
