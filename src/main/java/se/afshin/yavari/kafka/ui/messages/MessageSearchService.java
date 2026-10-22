@@ -76,6 +76,11 @@ public class MessageSearchService {
     }
 
     private void run(Credentials credentials, SearchRequest request, MultiEmitter<? super SearchEvent> emitter) {
+        if (credentials.expiredAt(clock.instant())) {
+            emitter.emit(new SearchEvent.Expired(0, 0, 0)); // already expired: no consumer to create
+            emitter.complete();
+            return;
+        }
         Cancellation cancelled = new Cancellation(emitter);
         try (Consumer<byte[], byte[]> consumer = consumers.apply(credentials)) {
             cancelled.attach(consumer);

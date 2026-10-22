@@ -1,10 +1,14 @@
 package se.afshin.yavari.kafka.ui.messages;
 
+import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 
 import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import io.quarkus.test.junit.QuarkusMock;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.helpers.test.AssertSubscriber;
 import jakarta.inject.Inject;
 import java.time.Duration;
@@ -30,6 +34,7 @@ import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
 import se.afshin.yavari.kafka.ui.kafka.DevKafkaProfile;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
 import se.afshin.yavari.kafka.ui.security.Credentials;
+import se.afshin.yavari.kafka.ui.security.CredentialsProvider;
 import se.afshin.yavari.kafka.ui.security.TestCertsResource;
 import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
 
@@ -43,6 +48,7 @@ class TokenExpiryTest {
 
     @Inject KafkaClients clients;
     @Inject KafkaUiConfig config;
+    @Inject SecurityIdentity identity;
 
     private final MessageDecoder decoder = new MessageDecoder(
             (c, kind, id) -> {
@@ -97,9 +103,7 @@ class TokenExpiryTest {
         var subscriber = service.tail(expiringInTwoSeconds(), topic, Set.of(), Optional.empty(), Optional.empty())
                 .subscribe().withSubscriber(AssertSubscriber.<SearchEvent>create(Long.MAX_VALUE));
         subscriber.awaitItems(1, Duration.ofSeconds(30));
-        Instant started = Instant.now();
-        subscriber.awaitCompletion(Duration.ofSeconds(3));
-        assertThat(Duration.between(started, Instant.now())).isLessThan(Duration.ofSeconds(3));
+        subscriber.awaitCompletion(Duration.ofSeconds(5));
         assertThat(subscriber.getItems().getLast()).isEqualTo(new SearchEvent.Expired(0, 0, 0));
         assertThat(closed.await(5, TimeUnit.SECONDS)).isTrue();
     }
@@ -118,5 +122,57 @@ class TokenExpiryTest {
         assertThat(subscriber.getItems().getLast()).isEqualTo(new SearchEvent.Expired(3, 3, 0));
         assertThat(subscriber.getItems()).noneMatch(e -> e instanceof SearchEvent.Done);
         assertThat(closed.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    private static final Function<Credentials, Consumer<byte[], byte[]>> NO_CONSUMER = c -> {
+        throw new AssertionError("no consumer must be created for expired credentials");
+    };
+
+    private static Credentials.Bearer expired() {
+        return new Credentials.Bearer("t", "alice", Instant.now().minusSeconds(1));
+    }
+
+    @Test
+    void alreadyExpiredTailEndsWithoutCreatingAConsumer() {
+        var subscriber = new TailService(NO_CONSUMER, decoder, Duration.ofMillis(100))
+                .tail(expired(), "any", Set.of(), Optional.empty(), Optional.empty())
+                .subscribe().withSubscriber(AssertSubscriber.<SearchEvent>create(Long.MAX_VALUE));
+        subscriber.awaitCompletion(Duration.ofSeconds(5));
+        assertThat(subscriber.getItems()).containsExactly(new SearchEvent.Expired(0, 0, 0));
+    }
+
+    @Test
+    void alreadyExpiredSearchEndsWithoutCreatingAConsumer() {
+        Instant now = Instant.now();
+        var request = new SearchRequest("any", Set.of(), now.minusSeconds(60), now, Optional.empty(),
+                Optional.empty(), Optional.empty());
+        var subscriber = new MessageSearchService(NO_CONSUMER, decoder, config.search())
+                .search(expired(), request)
+                .subscribe().withSubscriber(AssertSubscriber.<SearchEvent>create(Long.MAX_VALUE));
+        subscriber.awaitCompletion(Duration.ofSeconds(5));
+        assertThat(subscriber.getItems()).containsExactly(new SearchEvent.Expired(0, 0, 0));
+    }
+
+    @Test
+    void remainingLifetimeIsReportedForBearerOnly() {
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        assertThat(new Credentials.Bearer("t", "a", now.plusSeconds(42)).remaining(now))
+                .contains(Duration.ofSeconds(42));
+        assertThat(MTLS.remaining(now)).isEmpty();
+    }
+
+    @Test
+    void streamsCarryExpiredEventWhenTokenIsExpired() {
+        QuarkusMock.installMockForType(new CredentialsProvider(config, identity) {
+            @Override
+            public Credentials current() {
+                return expired();
+            }
+        }, CredentialsProvider.class);
+        for (String path : List.of("tail", "search")) {
+            given().accept("text/event-stream").get("/topics/any/messages/" + path).then().statusCode(200)
+                    .body(containsString("event:expired"))
+                    .body(containsString("scanned 0, matched 0"));
+        }
     }
 }

@@ -21,4 +21,10 @@ class SessionResourceTest {
     void pingRedirectsAnonymousUserToLogin() {
         given().redirects().follow(false).get("/session/ping").then().statusCode(302);
     }
+
+    @Test
+    @TestSecurity(user = "alice")
+    void pingOmitsLifetimeWhenIdentityHasNoToken() {
+        given().get("/session/ping").then().header("X-Token-Expires-In", org.hamcrest.Matchers.nullValue());
+    }
 }

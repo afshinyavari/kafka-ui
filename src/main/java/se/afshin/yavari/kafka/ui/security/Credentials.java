@@ -1,6 +1,8 @@
 package se.afshin.yavari.kafka.ui.security;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
 /** Identity the UI uses towards Kafka: the shared client certificate, or the logged-in user's bearer token. */
 public sealed interface Credentials permits Credentials.Mtls, Credentials.Bearer {
@@ -9,6 +11,11 @@ public sealed interface Credentials permits Credentials.Mtls, Credentials.Bearer
     String cacheScope();
 
     /** True when these credentials can no longer be used at {@code now}; the shared client certificate never expires. */
+    /** Time left before these credentials expire; empty when they never do. */
+    default Optional<Duration> remaining(Instant now) {
+        return Optional.empty();
+    }
+
     default boolean expiredAt(Instant now) {
         return false;
     }
@@ -24,6 +31,11 @@ public sealed interface Credentials permits Credentials.Mtls, Credentials.Bearer
         @Override
         public String cacheScope() {
             return "user:" + subject;
+        }
+
+        @Override
+        public Optional<Duration> remaining(Instant now) {
+            return Optional.ofNullable(expiresAt).map(e -> Duration.between(now, e));
         }
 
         @Override

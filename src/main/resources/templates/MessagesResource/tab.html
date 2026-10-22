@@ -38,6 +38,7 @@
 {|<script>
   if (!window.streamExpiry) {
     window.streamExpiry = true;
+    window.streamReopens = [];
     document.body.addEventListener('htmx:sseMessage', function (evt) {
       if (!evt.detail || evt.detail.type !== 'expired') return;
       var counts = evt.detail.data;
@@ -48,17 +49,23 @@
         box.textContent = text;
         htmx.swap('#search-stream', box.outerHTML, {swapStyle: 'outerHTML'});
       };
+      var reload = function () { show('Your session expired – reload the page'); };
+      // replacing the stream element closes its EventSource, so the browser cannot reconnect (and restart a search)
+      show('Checking session…');
       fetch('/session/ping', {redirect: 'manual', credentials: 'same-origin'}).then(function (r) {
-        if (r.status !== 200) {
-          show('Your session expired – reload the page');
-        } else if (document.getElementById('tail-live')) {
-          htmx.swap('#search-stream', document.getElementById('tail-live').innerHTML, {swapStyle: 'outerHTML'});
-        } else {
-          show('Search stopped: session refreshed, run again – ' + counts);
+        var left = r.headers.get('X-Token-Expires-In');
+        var refreshed = r.status === 200 && (left === null || parseInt(left, 10) > 5);
+        if (!refreshed) return reload();
+        var tail = document.getElementById('tail-live');
+        if (!tail) {
+          return show('Search stopped: session refreshed, run again – ' + counts);
         }
-      }).catch(function () {
-        show('Your session expired – reload the page');
-      });
+        var now = Date.now();
+        window.streamReopens = window.streamReopens.filter(function (t) { return now - t < 10000; });
+        if (window.streamReopens.length >= 2) return reload();
+        window.streamReopens.push(now);
+        htmx.swap('#search-stream', tail.innerHTML, {swapStyle: 'outerHTML'});
+      }).catch(reload);
     });
   }
 </script>|}
