@@ -18,7 +18,10 @@ import java.util.regex.PatternSyntaxException;
 import se.afshin.yavari.kafka.ui.kafka.UserError;
 import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
 
-/** The search form as typed (times are UTC {@code datetime-local} values); blanks are filled with defaults. */
+/**
+ * The search form as typed (times are UTC {@code datetime-local} values); a blank From becomes the default range
+ * before now. A blank To stays blank and means "now" at the moment the search starts.
+ */
 public record SearchForm(List<Integer> partitions, String from, String to, boolean byOffset, String offset,
         String keyRegex, String valueRegex) {
 
@@ -29,7 +32,7 @@ public record SearchForm(List<Integer> partitions, String from, String to, boole
         Instant end = now.truncatedTo(ChronoUnit.SECONDS);
         return new SearchForm(partitions == null ? List.of() : List.copyOf(partitions),
                 blank(from) ? format(end.minus(defaultRange)) : from.strip(),
-                blank(to) ? format(end) : to.strip(),
+                blank(to) ? "" : to.strip(),
                 byOffset,
                 offset == null ? "" : offset.strip(),
                 keyRegex == null ? "" : keyRegex,
@@ -42,8 +45,13 @@ public record SearchForm(List<Integer> partitions, String from, String to, boole
 
     /** Validates and converts; invalid input becomes a {@link UserErrorException} with a plain-language message. */
     public SearchRequest toRequest(String topic) {
+        return toRequest(topic, Instant.now());
+    }
+
+    /** A blank To is the end of the current second, so records produced right up to {@code now} are included. */
+    SearchRequest toRequest(String topic, Instant now) {
         Instant fromTime = byOffset ? Instant.EPOCH : parseTime("From", from);
-        Instant toTime = parseTime("To", to);
+        Instant toTime = to.isEmpty() ? now.truncatedTo(ChronoUnit.SECONDS).plusSeconds(1) : parseTime("To", to);
         if (!byOffset && !fromTime.isBefore(toTime)) {
             throw invalid("From must be before To.");
         }
@@ -63,12 +71,35 @@ public record SearchForm(List<Integer> partitions, String from, String to, boole
                 regex("key", keyRegex), regex("value", valueRegex));
     }
 
+    /** Query string for the tail stream: only partitions and regexes matter there. */
+    public String tailQuery() {
+        StringJoiner q = new StringJoiner("&");
+        partitions.forEach(p -> q.add("partition=" + p));
+        if (!keyRegex.isEmpty()) {
+            q.add("keyRegex=" + encode(keyRegex));
+        }
+        if (!valueRegex.isEmpty()) {
+            q.add("valueRegex=" + encode(valueRegex));
+        }
+        return q.toString();
+    }
+
+    /** Validates the live-tail part of the form (partitions and regexes) and converts it. */
+    TailRequest toTailRequest() {
+        return new TailRequest(Set.copyOf(partitions), regex("key", keyRegex), regex("value", valueRegex));
+    }
+
+    /** What a live tail needs from the form. */
+    record TailRequest(Set<Integer> partitions, Optional<Pattern> keyRegex, Optional<Pattern> valueRegex) {}
+
     /** Query string that reproduces this form, for the event stream URL. */
     public String query() {
         StringJoiner q = new StringJoiner("&");
         partitions.forEach(p -> q.add("partition=" + p));
         q.add("from=" + encode(from));
-        q.add("to=" + encode(to));
+        if (!to.isEmpty()) {
+            q.add("to=" + encode(to));
+        }
         if (byOffset) {
             q.add("byOffset=true");
             q.add("offset=" + encode(offset));

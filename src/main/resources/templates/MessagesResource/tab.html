@@ -13,7 +13,7 @@
     <label>From (UTC)
       <input type="datetime-local" step="1" name="from" value="{form.from}"{#if form.byOffset} disabled{/if}>
     </label>
-    <label>To (UTC)
+    <label>To (UTC, empty = now)
       <input type="datetime-local" step="1" name="to" value="{form.to}">
     </label>
     <label>
@@ -30,7 +30,7 @@
   </div>
   <div class="toolbar">
     <button type="submit" class="btn btn-primary">Search</button>
-    <label class="check" title="Live tail is not available yet"><input type="checkbox" name="live" disabled> Live (tail)</label>
+    <label class="check" title="Follow new messages as they arrive (uses partitions and regexes only)"><input type="checkbox" name="live" value="true"> Live (tail)</label>
     <span class="muted">No partition selected searches all partitions.</span>
   </div>
 </form>

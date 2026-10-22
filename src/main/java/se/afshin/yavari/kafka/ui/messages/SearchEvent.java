@@ -14,6 +14,10 @@ public sealed interface SearchEvent permits SearchEvent.Match, SearchEvent.Progr
         return "match limit reached (" + max + ")";
     }
 
+    static String noProgress(java.time.Duration idle) {
+        return "no progress from Kafka for " + idle.toSeconds() + " s";
+    }
+
     record Match(MessageView message) implements SearchEvent {}
 
     record Progress(long scanned, long matched, long regexTimeouts) implements SearchEvent {}

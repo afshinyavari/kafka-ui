@@ -110,6 +110,43 @@ class MessagesResourceTest {
     }
 
     @Test
+    void tabOffersLiveToggleAndEmptyTo() throws Exception {
+        ensureTopic();
+        String body = given().header("HX-Request", "true").get("/topics/" + TOPIC + "/messages").then()
+                .statusCode(200).extract().asString();
+        assertThat(body).contains("name=\"live\"").doesNotContain("name=\"live\" disabled")
+                .contains("To (UTC, empty = now)").contains("name=\"to\" value=\"\"");
+    }
+
+    @Test
+    void liveResultsConnectToTailWithMaxRows() throws Exception {
+        ensureTopic();
+        given().header("HX-Request", "true").queryParam("live", "true").queryParam("valueRegex", "o-4\\d")
+                .queryParam("partition", "1")
+                .get("/topics/" + TOPIC + "/messages/results").then().statusCode(200)
+                .body(containsString("sse-connect=\"/topics/msg-detail/messages/tail?partition=1&amp;valueRegex=o-4%5Cd\""))
+                .body(containsString("hx-swap=\"afterbegin\""))
+                .body(containsString("data-max-rows=\"1000\""))
+                .body(containsString("Pause")).body(containsString("Resume"));
+    }
+
+    @Test
+    void liveWithInvalidRegexShowsInlineError() throws Exception {
+        ensureTopic();
+        given().header("HX-Request", "true").queryParam("live", "true").queryParam("keyRegex", "(")
+                .get("/topics/" + TOPIC + "/messages/results").then().statusCode(200)
+                .body(containsString("Invalid key regex")).body(not(containsString("sse-connect")));
+    }
+
+    @Test
+    void tailStreamWithInvalidRegexEndsWithError() throws Exception {
+        ensureTopic();
+        String body = given().accept("text/event-stream").queryParam("valueRegex", "[")
+                .get("/topics/" + TOPIC + "/messages/tail").then().statusCode(200).extract().asString();
+        assertThat(body).contains("event:done").contains("Invalid value regex").doesNotContain("Exception");
+    }
+
+    @Test
     void invalidRegexShowsInlineError() throws Exception {
         ensureTopic();
         given().header("HX-Request", "true").queryParam("valueRegex", "(unclosed")

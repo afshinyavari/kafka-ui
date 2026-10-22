@@ -30,6 +30,8 @@ public final class KafkaClientProperties {
         p.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         p.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         p.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        // never silently jump to the end when retention moves the log start under a running scan
+        p.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         return p;
     }
 

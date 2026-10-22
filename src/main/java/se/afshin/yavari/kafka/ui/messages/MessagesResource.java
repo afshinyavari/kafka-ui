@@ -47,6 +47,10 @@ public class MessagesResource {
     static class Templates {
         static native TemplateInstance results(String name, SearchForm form, String error);
 
+        static native TemplateInstance tailResults(String name, SearchForm form, String error, int maxRows);
+
+        static native TemplateInstance tailProgress(SearchEvent.Progress p);
+
         static native TemplateInstance row(String topic, MessageView m);
 
         static native TemplateInstance progress(SearchEvent.Progress p);
@@ -68,10 +72,12 @@ public class MessagesResource {
         @QueryParam("offset") String offset;
         @QueryParam("keyRegex") String keyRegex;
         @QueryParam("valueRegex") String valueRegex;
+        @QueryParam("live") @DefaultValue("false") boolean live;
     }
 
     @Inject TopicService topics;
     @Inject MessageSearchService search;
+    @Inject TailService tail;
     @Inject CredentialsProvider credentials;
     @Inject KafkaUiConfig config;
 
@@ -97,11 +103,39 @@ public class MessagesResource {
     public TemplateInstance results(@PathParam("name") String name, @BeanParam SearchParams params) {
         SearchForm form = form(params);
         try {
+            if (params.live) {
+                form.toTailRequest();
+                return Templates.tailResults(name, form, null, config.tail().maxRows());
+            }
             form.toRequest(name);
             return Templates.results(name, form, null);
         } catch (UserErrorException e) {
-            return Templates.results(name, form, e.error().message());
+            return params.live
+                    ? Templates.tailResults(name, form, e.error().message(), config.tail().maxRows())
+                    : Templates.results(name, form, e.error().message());
         }
+    }
+
+    /** Live tail as server-sent events {@code match} (row HTML) and {@code progress}; {@code done} only on failure. */
+    @GET
+    @Path("tail")
+    @Produces(MediaType.SERVER_SENT_EVENTS)
+    public Multi<OutboundSseEvent> tail(@PathParam("name") String name, @BeanParam SearchParams params,
+            @Context Sse sse) {
+        Credentials creds = credentials.current();
+        SearchForm.TailRequest request;
+        try {
+            request = form(params).toTailRequest();
+        } catch (UserErrorException e) {
+            return Multi.createFrom().item(event(sse, "done", Templates.failed(e.error().message())));
+        }
+        return tail.tail(creds, name, request.partitions(), request.keyRegex(), request.valueRegex())
+                .map(e -> switch (e) {
+                    case SearchEvent.Match m -> event(sse, "match", Templates.row(name, m.message()));
+                    case SearchEvent.Progress p -> event(sse, "progress", Templates.tailProgress(p));
+                    case SearchEvent.Done d -> event(sse, "done", Templates.done(d));
+                })
+                .onFailure().recoverWithItem(t -> event(sse, "done", Templates.failed(failure(name, t))));
     }
 
     /** Server-sent events {@code match} (row HTML), {@code progress} and {@code done}. */

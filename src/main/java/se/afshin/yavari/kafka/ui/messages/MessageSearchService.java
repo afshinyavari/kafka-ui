@@ -12,17 +12,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.errors.WakeupException;
-import org.apache.kafka.common.header.Header;
 import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
 import se.afshin.yavari.kafka.ui.security.Credentials;
@@ -40,21 +37,30 @@ public class MessageSearchService {
     private static final Duration METADATA_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration FETCH_TIMEOUT = Duration.ofSeconds(5);
     private static final int PROGRESS_EVERY = 1000;
+    /** A search that receives nothing from Kafka for this long gives up. */
+    static final Duration IDLE_TIMEOUT = Duration.ofSeconds(30);
 
     private final Function<Credentials, Consumer<byte[], byte[]>> consumers;
-    private final MessageDecoder decoder;
     private final KafkaUiConfig.Search limits;
+    private final Duration idleTimeout;
+    private final RecordFilter filter;
 
     @Inject
     public MessageSearchService(KafkaClients clients, MessageDecoder decoder, KafkaUiConfig config) {
-        this(clients::newConsumer, decoder, config.search());
+        this(clients::newConsumer, decoder, config.search(), IDLE_TIMEOUT);
     }
 
     MessageSearchService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
             KafkaUiConfig.Search limits) {
+        this(consumers, decoder, limits, IDLE_TIMEOUT);
+    }
+
+    MessageSearchService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
+            KafkaUiConfig.Search limits, Duration idleTimeout) {
         this.consumers = consumers;
-        this.decoder = decoder;
         this.limits = limits;
+        this.idleTimeout = idleTimeout;
+        this.filter = new RecordFilter(decoder, limits.regexTimeout());
     }
 
     public Multi<SearchEvent> search(Credentials credentials, SearchRequest request) {
@@ -63,23 +69,15 @@ public class MessageSearchService {
     }
 
     private void run(Credentials credentials, SearchRequest request, MultiEmitter<? super SearchEvent> emitter) {
-        AtomicBoolean cancelled = new AtomicBoolean();
-        AtomicReference<Consumer<byte[], byte[]>> current = new AtomicReference<>();
-        emitter.onTermination(() -> {
-            cancelled.set(true);
-            Consumer<byte[], byte[]> c = current.get();
-            if (c != null) {
-                c.wakeup();
-            }
-        });
+        Cancellation cancelled = new Cancellation(emitter);
         try (Consumer<byte[], byte[]> consumer = consumers.apply(credentials)) {
-            current.set(consumer);
-            if (cancelled.get()) {
+            cancelled.attach(consumer);
+            if (cancelled.isCancelled()) {
                 return;
             }
             Scan scan = new Scan(credentials, request, emitter, cancelled);
             String reason = scan.run(consumer);
-            if (!cancelled.get()) {
+            if (!cancelled.isCancelled()) {
                 emitter.emit(new SearchEvent.Progress(scan.scanned, scan.matched, scan.timeouts));
                 emitter.emit(new SearchEvent.Done(scan.scanned, scan.matched, scan.timeouts, reason));
                 emitter.complete();
@@ -87,7 +85,7 @@ public class MessageSearchService {
         } catch (WakeupException e) {
             // cancelled while polling: nothing to report
         } catch (RuntimeException e) {
-            if (!cancelled.get()) {
+            if (!cancelled.isCancelled()) {
                 emitter.fail(e);
             }
         }
@@ -98,13 +96,13 @@ public class MessageSearchService {
         private final Credentials credentials;
         private final SearchRequest request;
         private final MultiEmitter<? super SearchEvent> emitter;
-        private final AtomicBoolean cancelled;
+        private final Cancellation cancelled;
         long scanned;
         long matched;
         long timeouts;
 
         Scan(Credentials credentials, SearchRequest request, MultiEmitter<? super SearchEvent> emitter,
-                AtomicBoolean cancelled) {
+                Cancellation cancelled) {
             this.credentials = credentials;
             this.request = request;
             this.emitter = emitter;
@@ -119,11 +117,16 @@ public class MessageSearchService {
             boolean byTime = request.fromOffset().isEmpty();
             long fromMs = request.from().toEpochMilli();
             long toMs = request.to().toEpochMilli();
-            while (!ends.isEmpty()) {
-                if (cancelled.get()) {
-                    return SearchEvent.CANCELLED;
+            long lastProgress = System.nanoTime();
+            while (!ends.isEmpty() && !cancelled.isCancelled()) {
+                if (System.nanoTime() - lastProgress > idleTimeout.toNanos()) {
+                    return SearchEvent.noProgress(idleTimeout);
                 }
-                for (ConsumerRecord<byte[], byte[]> r : consumer.poll(POLL)) {
+                ConsumerRecords<byte[], byte[]> polled = consumer.poll(POLL);
+                if (!polled.isEmpty()) {
+                    lastProgress = System.nanoTime();
+                }
+                for (ConsumerRecord<byte[], byte[]> r : polled) {
                     TopicPartition tp = new TopicPartition(r.topic(), r.partition());
                     Long end = ends.get(tp);
                     if (end == null || r.offset() >= end) {
@@ -135,7 +138,7 @@ public class MessageSearchService {
                     if (matched >= limits.maxMatches()) {
                         return SearchEvent.matchLimit(limits.maxMatches());
                     }
-                    if (cancelled.get()) {
+                    if (cancelled.isCancelled()) {
                         return SearchEvent.CANCELLED;
                     }
                     scanned++;
@@ -153,11 +156,12 @@ public class MessageSearchService {
                     }
                 });
                 if (!finished.isEmpty()) {
+                    lastProgress = System.nanoTime();
                     finished.forEach(ends::remove);
                     consumer.pause(finished);
                 }
             }
-            return SearchEvent.END_OF_RANGE;
+            return cancelled.isCancelled() ? SearchEvent.CANCELLED : SearchEvent.END_OF_RANGE;
         }
 
         /** Assigns and seeks every partition with a non-empty range; returns the exclusive end offsets. */
@@ -205,21 +209,15 @@ public class MessageSearchService {
         }
 
         private void test(ConsumerRecord<byte[], byte[]> r) {
-            MessageView m = view(credentials, r, null, null);
-            RegexMatcher.Result key = matches(request.keyRegex(), m.key().text());
-            RegexMatcher.Result value = key == RegexMatcher.Result.MATCH
-                    ? matches(request.valueRegex(), m.value().text())
-                    : RegexMatcher.Result.NO_MATCH;
-            if (key == RegexMatcher.Result.TIMEOUT || value == RegexMatcher.Result.TIMEOUT) {
-                timeouts++;
-            } else if (value == RegexMatcher.Result.MATCH) {
-                matched++;
-                emitter.emit(new SearchEvent.Match(m));
+            RecordFilter.Verdict v = filter.test(credentials, r, request.keyRegex(), request.valueRegex());
+            switch (v.result()) {
+                case TIMEOUT -> timeouts++;
+                case MATCH -> {
+                    matched++;
+                    emitter.emit(new SearchEvent.Match(v.message()));
+                }
+                case NO_MATCH -> { }
             }
-        }
-
-        private RegexMatcher.Result matches(Optional<Pattern> regex, String text) {
-            return regex.map(p -> RegexMatcher.find(p, text, limits.regexTimeout())).orElse(RegexMatcher.Result.MATCH);
         }
     }
 
@@ -256,7 +254,7 @@ public class MessageSearchService {
             while (System.nanoTime() < deadline) {
                 for (ConsumerRecord<byte[], byte[]> r : consumer.poll(POLL)) {
                     if (r.offset() == offset) {
-                        return Optional.of(view(credentials, r, keyAs, valueAs));
+                        return Optional.of(filter.view(credentials, r, keyAs, valueAs));
                     }
                     if (r.offset() > offset) {
                         return Optional.empty();
@@ -268,16 +266,5 @@ public class MessageSearchService {
             }
             return Optional.empty();
         }
-    }
-
-    private MessageView view(Credentials credentials, ConsumerRecord<byte[], byte[]> r, Format keyAs, Format valueAs) {
-        List<HeaderView> headers = new ArrayList<>();
-        for (Header h : r.headers()) {
-            headers.add(HeaderView.of(h));
-        }
-        return new MessageView(r.partition(), r.offset(), Instant.ofEpochMilli(r.timestamp()),
-                decoder.decodeAs(credentials, r.key(), r.headers(), true, keyAs),
-                decoder.decodeAs(credentials, r.value(), r.headers(), false, valueAs),
-                List.copyOf(headers));
     }
 }

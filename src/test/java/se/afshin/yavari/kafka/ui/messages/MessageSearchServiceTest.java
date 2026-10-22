@@ -262,6 +262,33 @@ class MessageSearchServiceTest {
     }
 
     @Test
+    void stopsWhenKafkaMakesNoProgress() throws Exception {
+        String topic = topic(1);
+        produceMany(topic, 5);
+        Properties p = new Properties();
+        p.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                ConfigProvider.getConfig().getValue("kafka.bootstrap.servers", String.class));
+        p.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        p.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        Function<Credentials, Consumer<byte[], byte[]>> silent = c -> new KafkaConsumer<byte[], byte[]>(p) {
+            @Override
+            public ConsumerRecords<byte[], byte[]> poll(Duration timeout) {
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return ConsumerRecords.empty();
+            }
+        };
+        var service = new MessageSearchService(silent, decoder, limits(100_000, 500), Duration.ofSeconds(1));
+        var done = done(run(service, lastHour(topic, null, null)));
+        assertThat(done.stopReason()).isEqualTo("no progress from Kafka for 1 s");
+        assertThat(done.scanned()).isZero();
+        assertThat(MessageSearchService.IDLE_TIMEOUT).isEqualTo(Duration.ofSeconds(30));
+    }
+
+    @Test
     void emptyRangeEndsWithZero() throws Exception {
         String topic = topic(2);
         var events = run(service(), lastHour(topic, null, null));
