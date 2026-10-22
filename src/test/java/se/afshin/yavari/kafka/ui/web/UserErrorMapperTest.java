@@ -3,6 +3,7 @@ package se.afshin.yavari.kafka.ui.web;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -15,6 +16,21 @@ class UserErrorMapperTest {
         given().header("HX-Request", "true").get("/test-errors/user").then().statusCode(403)
                 .body(containsString("permission to access topic orders."))
                 .body(not(containsString("<html")));
+    }
+
+    @Test void topicTabErrorLandsInThePanelNotOverTheTabs() {
+        given().header("HX-Request", "true").header("HX-Target", "tab-area").get("/test-errors/user").then()
+                .statusCode(403)
+                .header("HX-Retarget", "#tab-panel")
+                .header("HX-Reswap", "innerHTML")
+                .body(containsString("permission to access topic orders."));
+    }
+
+    @Test void otherHtmxErrorsKeepTheirTarget() {
+        given().header("HX-Request", "true").header("HX-Target", "search-results").get("/test-errors/user").then()
+                .statusCode(403)
+                .header("HX-Retarget", nullValue())
+                .header("HX-Reswap", nullValue());
     }
 
     @Test void normalRequestGetsFullPage() {

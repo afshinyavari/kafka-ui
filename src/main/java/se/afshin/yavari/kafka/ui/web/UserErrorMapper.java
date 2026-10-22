@@ -20,6 +20,9 @@ import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
 @Provider
 public class UserErrorMapper implements ExceptionMapper<Throwable> {
     private static final Logger LOG = Logger.getLogger(UserErrorMapper.class);
+    /** Ids from TopicsResource/detail.html and panel.html. */
+    static final String TAB_AREA = "tab-area";
+    static final String TAB_PANEL = "tab-panel";
 
     @Inject
     @Location("fragments/error")
@@ -46,6 +49,12 @@ public class UserErrorMapper implements ExceptionMapper<Throwable> {
         }
         boolean htmx = "true".equalsIgnoreCase(headers.getHeaderString("HX-Request"));
         TemplateInstance instance = (htmx ? error.getFragment("box").instance() : error.instance()).data("error", userError);
-        return Response.status(userError.httpStatus()).type(MediaType.TEXT_HTML).entity(instance.render()).build();
+        Response.ResponseBuilder response = Response.status(userError.httpStatus()).type(MediaType.TEXT_HTML)
+                .entity(instance.render());
+        if (htmx && TAB_AREA.equals(headers.getHeaderString("HX-Target"))) {
+            // a failed topic-tab click shows the error under the tabs instead of replacing them
+            response.header("HX-Retarget", "#" + TAB_PANEL).header("HX-Reswap", "innerHTML");
+        }
+        return response.build();
     }
 }

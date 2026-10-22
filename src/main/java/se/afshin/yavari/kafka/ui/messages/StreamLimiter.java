@@ -19,8 +19,9 @@ import se.afshin.yavari.kafka.ui.security.Credentials;
 
 /**
  * Bounds searches and tails: they run on a dedicated pool of {@code maxConcurrent} threads (not the shared worker
- * pool), and each identity may run at most {@code maxPerIdentity} at once. A stream over either limit fails right
- * away with {@link #TOO_MANY}; a slot is freed when the stream completes, fails or is cancelled.
+ * pool), and each OIDC user may run at most {@code maxPerIdentity} at once. In mTLS mode everyone shares one identity,
+ * so only the global limit applies. A stream over a limit fails right away with {@link #TOO_MANY}; a slot is freed when
+ * the stream completes, fails or is cancelled.
  */
 @ApplicationScoped
 public class StreamLimiter {
@@ -62,7 +63,8 @@ public class StreamLimiter {
 
     /** Takes a slot when {@code stream} is subscribed and frees it when the stream terminates. */
     public <T> Multi<T> limit(Credentials credentials, Multi<T> stream) {
-        String scope = credentials.cacheScope();
+        // only OIDC users are told apart; capping the shared mTLS identity would cap the whole installation
+        String scope = credentials instanceof Credentials.Bearer ? credentials.cacheScope() : null;
         return Multi.createFrom().deferred(() -> {
             if (!acquire(scope)) {
                 return Multi.createFrom().failure(
@@ -77,18 +79,23 @@ public class StreamLimiter {
         });
     }
 
+    /** {@code scope} is null for streams that only count towards the global limit. */
     private synchronized boolean acquire(String scope) {
-        int mine = running.getOrDefault(scope, 0);
-        if (total >= maxConcurrent || mine >= maxPerIdentity) {
+        int mine = scope == null ? 0 : running.getOrDefault(scope, 0);
+        if (total >= maxConcurrent || (scope != null && mine >= maxPerIdentity)) {
             return false;
         }
-        running.put(scope, mine + 1);
+        if (scope != null) {
+            running.put(scope, mine + 1);
+        }
         total++;
         return true;
     }
 
     private synchronized void release(String scope) {
-        running.computeIfPresent(scope, (k, v) -> v <= 1 ? null : v - 1);
+        if (scope != null) {
+            running.computeIfPresent(scope, (k, v) -> v <= 1 ? null : v - 1);
+        }
         total--;
     }
 

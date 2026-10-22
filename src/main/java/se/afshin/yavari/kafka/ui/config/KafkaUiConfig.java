@@ -67,7 +67,7 @@ public interface KafkaUiConfig {
         @WithDefault("32")
         int maxConcurrent();
 
-        /** Per identity (user in OIDC mode; everyone shares one identity in mTLS mode). */
+        /** Per user in OIDC mode. Not applied in mTLS mode, where everyone shares one identity: only maxConcurrent caps. */
         @WithDefault("3")
         int maxPerUser();
     }

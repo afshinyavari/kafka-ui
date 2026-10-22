@@ -41,6 +41,17 @@ class StreamLimiterTest {
     }
 
     @Test
+    void sharedMtlsIdentityIsOnlyCappedOverall() {
+        var limiter = new StreamLimiter(4, 1);
+        var mtls = new Credentials.Mtls();
+        open(limiter, mtls).assertNotTerminated();
+        open(limiter, mtls).assertNotTerminated();
+        open(limiter, mtls).assertNotTerminated();
+        open(limiter, ALICE).assertNotTerminated();
+        assertTooMany(open(limiter, mtls));
+    }
+
+    @Test
     void capsStreamsOverall() {
         var limiter = new StreamLimiter(2, 3);
         open(limiter, ALICE);
