@@ -38,6 +38,9 @@ public class MessageDecoder {
     }
 
     static final int HEX_LIMIT = 4096;
+    /** Ids outside these bounds are not looked up: no registry hands them out, and random bytes often look like one. */
+    static final long MAX_CONTENT_ID = 1L << 31;
+    static final long MAX_GLOBAL_ID = 1_000_000_000_000L;
     private static final int PARSED_CACHE_LIMIT = 500;
 
     private static final ObjectMapper JSON = new ObjectMapper()
@@ -143,6 +146,10 @@ public class MessageDecoder {
     private Decoded attempt(Credentials credentials, SchemaRef ref, byte[] data, int offset, boolean jsonEncoded,
             Format forced, List<String> notes) {
         String idText = idLabel(ref);
+        if (!plausible(ref)) {
+            notes.add("Ignored implausible " + idText + " (" + sourceLabel(ref) + ")");
+            return null;
+        }
         Lookup lookup;
         try {
             lookup = schemas.get(credentials, ref.kind(), ref.id());
@@ -236,6 +243,11 @@ public class MessageDecoder {
             return new Decoded(Format.XML, xml.get(), prefix + "XML", Optional.empty());
         }
         return new Decoded(Format.TEXT, text, prefix + "text", Optional.empty());
+    }
+
+    static boolean plausible(SchemaRef ref) {
+        long max = ref.kind() == IdKind.GLOBAL_ID ? MAX_GLOBAL_ID : MAX_CONTENT_ID;
+        return ref.id() > 0 && ref.id() <= max;
     }
 
     private static String idLabel(SchemaRef ref) {

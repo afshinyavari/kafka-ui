@@ -293,4 +293,29 @@ class MessageDecoderTest {
         Decoded d = overflowing.decode(CREDS, avroBody(false), header(IdKind.CONTENT_ID, 42), false);
         assertThat(d.explanation()).contains("Avro decoding failed").contains("StackOverflowError");
     }
+
+    @Test
+    void implausibleIdsAreNotLookedUp() {
+        List<String> looked = new java.util.ArrayList<>();
+        var recording = new MessageDecoder((c, kind, id) -> {
+            looked.add(kind + ":" + id);
+            return new Lookup.NotFound();
+        }, (c, r) -> {
+            throw new IllegalStateException("no references expected");
+        });
+        byte[] json = "{\"a\":1}".getBytes(StandardCharsets.UTF_8);
+        Decoded zero = recording.decode(CREDS, json, header(IdKind.CONTENT_ID, 0), false);
+        assertThat(zero.explanation()).startsWith("Ignored implausible contentId 0 (contentId from header) – ");
+        Decoded huge = recording.decode(CREDS, json, header(IdKind.CONTENT_ID, (1L << 31) + 1), false);
+        assertThat(huge.explanation()).startsWith("Ignored implausible contentId 2147483649");
+        Decoded global = recording.decode(CREDS, json, header(IdKind.GLOBAL_ID, 1_000_000_000_001L), false);
+        assertThat(global.explanation()).startsWith("Ignored implausible globalId 1000000000001");
+        Decoded negative = recording.decode(CREDS, json, header(IdKind.GLOBAL_ID, -3), false);
+        assertThat(negative.explanation()).startsWith("Ignored implausible globalId -3");
+        assertThat(looked).isEmpty();
+
+        recording.decode(CREDS, json, header(IdKind.CONTENT_ID, 1L << 31), false);
+        recording.decode(CREDS, json, header(IdKind.GLOBAL_ID, 1_000_000_000_000L), false);
+        assertThat(looked).containsExactly("CONTENT_ID:2147483648", "GLOBAL_ID:1000000000000");
+    }
 }

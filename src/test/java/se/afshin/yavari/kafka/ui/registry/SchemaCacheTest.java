@@ -59,19 +59,50 @@ class SchemaCacheTest {
     }
 
     @Test
-    void deniedIsNotCached() {
+    void deniedIsRememberedOnlyBrieflyAndNeverAsNotFound() {
         server.stubFor(get(urlEqualTo(CONTENT)).willReturn(status(403)));
         assertThat(cache.get(ALICE, IdKind.CONTENT_ID, 7)).isEqualTo(new Lookup.Denied(403));
+        now = now.plus(Duration.ofSeconds(9));
         assertThat(cache.get(ALICE, IdKind.CONTENT_ID, 7)).isEqualTo(new Lookup.Denied(403));
+        assertThat(calls()).isEqualTo(1);
+
+        server.resetAll();
+        RegistryStubs.schema(server); // permission granted meanwhile
+        now = now.plus(Duration.ofSeconds(2));
+        assertThat(cache.get(ALICE, IdKind.CONTENT_ID, 7)).isInstanceOf(Lookup.Found.class);
+        assertThat(calls()).isEqualTo(1);
+    }
+
+    @Test
+    void unavailableIsRememberedOnlyBriefly() {
+        server.stubFor(get(urlEqualTo(CONTENT)).willReturn(status(503)));
+        assertThat(cache.get(ALICE, IdKind.CONTENT_ID, 7)).isInstanceOf(Lookup.Unavailable.class);
+        cache.get(ALICE, IdKind.CONTENT_ID, 7);
+        assertThat(calls()).isEqualTo(1);
+        now = now.plus(SchemaCache.FAILURE_TTL);
+        cache.get(ALICE, IdKind.CONTENT_ID, 7);
         assertThat(calls()).isEqualTo(2);
     }
 
     @Test
-    void unavailableIsNotCached() {
-        server.stubFor(get(urlEqualTo(CONTENT)).willReturn(status(503)));
+    void deniedMemoIsPerUser() {
+        server.stubFor(get(urlEqualTo(CONTENT)).willReturn(status(403)));
         cache.get(ALICE, IdKind.CONTENT_ID, 7);
-        cache.get(ALICE, IdKind.CONTENT_ID, 7);
-        assertThat(calls()).isEqualTo(2);
+        server.resetAll();
+        RegistryStubs.schema(server);
+        assertThat(cache.get(BOB, IdKind.CONTENT_ID, 7)).isInstanceOf(Lookup.Found.class);
+    }
+
+    @Test
+    void sizeIsBoundedWithoutDroppingEverything() {
+        RegistryStubs.schema(server);
+        server.stubFor(get(urlMatching(RegistryStubs.BASE + "/ids/globalIds/.*")).willReturn(notFound()));
+        var small = new SchemaCache(new RegistryClient(
+                URI.create("http://localhost:" + server.port() + RegistryStubs.BASE), holder), () -> now, 5);
+        for (int i = 1; i <= 20; i++) {
+            small.get(ALICE, IdKind.GLOBAL_ID, i);
+        }
+        assertThat(small.size()).isLessThanOrEqualTo(5).isGreaterThan(0);
     }
 
     @Test
