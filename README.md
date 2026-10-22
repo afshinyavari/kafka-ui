@@ -71,9 +71,18 @@ Other useful Quarkus settings:
 ### CSRF
 Writes (produce, reset offsets) are only accepted as htmx requests (`HX-Request`) from the same origin (`Origin` must match the request's host). Plain cross-site form posts are rejected.
 
-## Kubernetes
+## OpenShift / Kubernetes
 
-Manifests are in `deploy/kubernetes` (Deployment, Service, ConfigMap, kustomization):
+The recommended way to deploy (OpenShift Route, restricted-v2 SCC, optional cert-manager client certificate) is the
+Helm chart in `deploy/helm/kafka-ui`, see its [README](deploy/helm/kafka-ui/README.md):
+
+```
+helm install kafka-ui deploy/helm/kafka-ui -f my-values.yaml   # scenario examples: deploy/helm/ci-values/
+```
+
+### Plain manifests
+
+Alternatively, plain manifests are in `deploy/kubernetes` (Deployment, Service, ConfigMap, kustomization):
 
 ```
 kubectl apply -k deploy/kubernetes

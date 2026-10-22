@@ -36,6 +36,12 @@ fails() {
   else bad "$desc" "message [$msg] not in: $err"; fi
 }
 
+echo "== helm lint (also --strict)"
+for f in "$CI"/*.yaml; do
+  helm lint "$CHART" -f "$f" >"$OUT/lint.out" 2>&1 && ok "lint $(basename "$f")" || bad "lint $(basename "$f")" "$(cat "$OUT/lint.out")"
+  helm lint --strict "$CHART" -f "$f" >"$OUT/lint.out" 2>&1 && ok "lint --strict $(basename "$f")" || bad "lint --strict $(basename "$f")" "$(cat "$OUT/lint.out")"
+done
+
 echo "== oidc (default mode, route)"
 render oidc "$CI/oidc.yaml" && {
   hasnt "no KAFKA_UI_TLS_CERT_FILE" oidc 'KAFKA_UI_TLS_CERT_FILE'
@@ -73,12 +79,12 @@ render oidc "$CI/oidc.yaml" && {
   eq "no privilege escalation" oidc Deployment '.spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation' "false"
   eq "drop ALL capabilities" oidc Deployment '.spec.template.spec.containers[0].securityContext.capabilities.drop[0]' "ALL"
   eq "container has no runAsUser" oidc Deployment '.spec.template.spec.containers[0].securityContext.runAsUser' "null"
-  eq "no subPath mounts" oidc Deployment '[.spec.template.spec.containers[0].volumeMounts[] | select(.subPath)] | length' "0"
+  hasnt "no subPath mounts" oidc 'subPath'
   hasnt "unset tuning vars not rendered" oidc 'KAFKA_UI_SEARCH_|KAFKA_UI_TAIL_|KAFKA_UI_STREAMS_|KAFKA_UI_PRODUCE_'
 }
 
 echo "== oidc with tuning, readOnlyRootFilesystem, extras"
-cat >"$OUT/extra.yaml" <<YAML
+cat >"$OUT/v-extra.yaml" <<YAML
 config:
   search: { maxScanned: 5000, regexTimeout: 250ms }
   tail: { maxRows: 200 }
@@ -89,7 +95,7 @@ extraEnv: [ { name: FOO, value: bar } ]
 podAnnotations: { a: b }
 networkPolicy: { enabled: true }
 YAML
-render extra "$CI/oidc.yaml" -f "$OUT/extra.yaml" && {
+render extra "$CI/oidc.yaml" -f "$OUT/v-extra.yaml" && {
   eq "search max scanned" extra ConfigMap '.data.KAFKA_UI_SEARCH_MAX_SCANNED' "5000"
   eq "search regex timeout" extra ConfigMap '.data.KAFKA_UI_SEARCH_REGEX_TIMEOUT' "250ms"
   eq "tail max rows" extra ConfigMap '.data.KAFKA_UI_TAIL_MAX_ROWS' "200"
@@ -133,10 +139,10 @@ render cm "$CI/mtls-certmanager.yaml" && {
   eq "certificate secretName matches" cm Certificate '.spec.secretName' "kafka-ui-client"
   eq "cert file env" cm ConfigMap '.data.KAFKA_UI_TLS_CERT_FILE' "/etc/kafka-ui/client/tls.crt"
 }
-cat >"$OUT/cm-ec.yaml" <<YAML
+cat >"$OUT/v-cm-ec.yaml" <<YAML
 certManager: { privateKey: { algorithm: ECDSA, size: 256 }, secretName: custom-secret }
 YAML
-render cmec "$CI/mtls-certmanager.yaml" -f "$OUT/cm-ec.yaml" && {
+render cmec "$CI/mtls-certmanager.yaml" -f "$OUT/v-cm-ec.yaml" && {
   eq "ECDSA algorithm configurable" cmec Certificate '.spec.privateKey.algorithm' "ECDSA"
   eq "PKCS8 kept with ECDSA" cmec Certificate '.spec.privateKey.encoding' "PKCS8"
   eq "custom secretName" cmec Deployment '.spec.template.spec.volumes[] | select(.name=="client-cert") | .secret.secretName' "custom-secret"

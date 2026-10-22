@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "mode": { "type": "string", "enum": ["mtls", "oidc"] },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string" },
+        "tag": { "type": ["string", "number"] },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "imagePullSecrets": { "type": "array", "items": { "type": "object" } },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "replicaCount": { "type": "integer", "minimum": 0 },
+    "kafka": { "type": "object", "properties": { "bootstrapServers": { "type": "string" } } },
+    "registry": { "type": "object", "properties": { "url": { "type": "string" } } },
+    "tls": {
+      "type": "object",
+      "properties": {
+        "ca": {
+          "type": "object",
+          "properties": { "existingSecret": { "type": "string" }, "key": { "type": "string", "minLength": 1 } }
+        },
+        "client": {
+          "type": "object",
+          "properties": {
+            "existingSecret": { "type": "string" },
+            "certKey": { "type": "string", "minLength": 1 },
+            "keyKey": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "certManager": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "secretName": { "type": "string" },
+        "issuerRef": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "kind": { "type": "string" },
+            "group": { "type": "string" }
+          }
+        },
+        "commonName": { "type": "string" },
+        "dnsNames": { "type": "array", "items": { "type": "string" } },
+        "usages": { "type": "array", "items": { "type": "string" } },
+        "duration": { "type": "string" },
+        "renewBefore": { "type": "string" },
+        "privateKey": {
+          "type": "object",
+          "properties": {
+            "algorithm": { "type": "string", "enum": ["RSA", "ECDSA", "Ed25519"] },
+            "size": { "type": ["integer", "null"] },
+            "rotationPolicy": { "type": "string", "enum": ["Never", "Always"] }
+          }
+        }
+      }
+    },
+    "oidc": {
+      "type": "object",
+      "properties": {
+        "authServerUrl": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientSecret": {
+          "type": "object",
+          "properties": { "existingSecret": { "type": "string" }, "key": { "type": "string" } }
+        },
+        "stateSecret": {
+          "type": "object",
+          "properties": { "existingSecret": { "type": "string" }, "key": { "type": "string" } }
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "search": {
+          "type": "object",
+          "properties": {
+            "maxScanned": { "type": "integer", "minimum": 1 },
+            "maxMatches": { "type": "integer", "minimum": 1 },
+            "regexTimeout": { "type": "string" },
+            "defaultRange": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "tail": {
+          "type": "object",
+          "properties": { "maxRows": { "type": "integer", "minimum": 1 } },
+          "additionalProperties": false
+        },
+        "streams": {
+          "type": "object",
+          "properties": {
+            "maxConcurrent": { "type": "integer", "minimum": 1 },
+            "maxPerUser": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "produce": {
+          "type": "object",
+          "properties": {
+            "idLocation": { "type": "string", "enum": ["PAYLOAD", "HEADERS"] },
+            "idKind": { "type": "string", "enum": ["CONTENT_ID", "GLOBAL_ID"] },
+            "valueHeaderPrefix": { "type": "string" },
+            "keyHeaderPrefix": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "extraEnv": { "type": "array", "items": { "type": "object" } },
+    "extraEnvFrom": { "type": "array", "items": { "type": "object" } },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "route": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "host": { "type": "string" },
+        "path": { "type": "string" },
+        "annotations": { "type": "object" },
+        "tls": {
+          "type": ["object", "null"],
+          "properties": {
+            "termination": { "type": "string", "enum": ["edge", "reencrypt", "passthrough"] },
+            "insecureEdgeTerminationPolicy": { "type": "string", "enum": ["Allow", "Disable", "Redirect", "None"] }
+          }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object" },
+        "hosts": { "type": "array", "items": { "type": "object" } },
+        "tls": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "annotations": { "type": "object" }
+      }
+    },
+    "podAnnotations": { "type": "object" },
+    "podLabels": { "type": "object" },
+    "podSecurityContext": { "type": "object" },
+    "containerSecurityContext": {
+      "type": "object",
+      "properties": { "readOnlyRootFilesystem": { "type": "boolean" } }
+    },
+    "resources": { "type": "object" },
+    "livenessProbe": { "type": "object" },
+    "readinessProbe": { "type": "object" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minAvailable": { "type": ["integer", "string"] },
+        "maxUnavailable": { "type": ["integer", "string"] }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": { "enabled": { "type": "boolean" }, "ingressFrom": { "type": "array" } }
+    }
+  }
+}
