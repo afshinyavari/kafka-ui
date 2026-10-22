@@ -6,39 +6,23 @@
         <button type="button" class="btn btn-ghost btn-sm" aria-label="Close" onclick="document.getElementById('produce-modal').remove()">{#include icons/close /}</button>
       </div>
       <div class="modal-body">
-        <div class="search-fields grid gap-4 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <label class="field">Format
-            <select name="mode" class="input" onchange="document.getElementById('produce-schema').hidden = this.value !== 'AVRO'">
-              <option value="RAW">Raw text (JSON, XML, ...)</option>
-              <option value="AVRO">Avro (schema from registry)</option>
-            </select>
-          </label>
-          <label class="field"><span>Partition<span class="field-hint">optional</span></span>
-            <input type="number" name="partition" min="0" placeholder="auto" class="input">
-          </label>
-          <label class="field"><span>Key<span class="field-hint">optional</span></span>
-            <input type="text" name="key" class="input font-mono">
-          </label>
-        </div>
-        <fieldset id="produce-schema" class="fieldset space-y-3" hidden>
-          <legend>Value schema</legend>
-          <label class="input-search">{#include icons/search /}
-            <input type="search" name="q" placeholder="Search schemas by name" aria-label="Search schemas by name" class="input"
-                   hx-get="/schemas/search" hx-trigger="keyup changed delay:300ms, load" hx-target="#artifact-list">
-          </label>
-          <div id="artifact-list"></div>
-          <div id="version-picker"></div>
-        </fieldset>
-        <label class="field">Value
-          <textarea name="value" rows="10" spellcheck="false" class="input" placeholder="Paste the message here. For Avro, write plain JSON."></textarea>
+        <label class="field max-w-48"><span>Partition<span class="field-hint">optional</span></span>
+          <input type="number" name="partition" min="0" placeholder="auto" class="input">
         </label>
+        {#include ProduceResource/part role='key' label='Key' /}
+        {#include ProduceResource/part role='value' label='Value' /}
         <fieldset class="fieldset">
           <legend>Headers</legend>
-          <div id="produce-headers" class="space-y-2">
-            <div class="header-row grid grid-cols-2 gap-2"><input type="text" name="headerName" placeholder="name" aria-label="Header name" class="input font-mono"> <input type="text" name="headerValue" placeholder="value" aria-label="Header value" class="input font-mono"></div>
-          </div>
-          <button type="button" class="btn btn-sm mt-3"
-                  onclick="var r = document.querySelector('#produce-headers .header-row').cloneNode(true); r.querySelectorAll('input').forEach(function(i) { i.value = '' }); document.getElementById('produce-headers').appendChild(r)">{#include icons/plus /}Add header</button>
+          <template id="produce-header-row">
+            <div class="header-row grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+              <input type="text" name="headerName" placeholder="name" aria-label="Header name" class="input font-mono">
+              <input type="text" name="headerValue" placeholder="value" aria-label="Header value" class="input font-mono">
+              <button type="button" class="btn btn-ghost" aria-label="Remove header" title="Remove header" onclick="this.closest('.header-row').remove()">{#include icons/close /}</button>
+            </div>
+          </template>
+          <div id="produce-headers" class="space-y-2 empty:hidden"></div>
+          <button type="button" class="btn btn-sm mt-3 [#produce-headers:empty+&]:mt-0"
+                  onclick="document.getElementById('produce-headers').appendChild(document.getElementById('produce-header-row').content.cloneNode(true))">{#include icons/plus /}Add header</button>
         </fieldset>
         <div id="produce-result"></div>
       </div>

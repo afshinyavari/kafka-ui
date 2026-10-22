@@ -7,8 +7,15 @@ import se.afshin.yavari.kafka.ui.messages.HeaderView;
 public record ProduceRequest(
         String topic,
         Optional<Integer> partition,
-        String key,
-        String value,
-        List<HeaderView> headers,
-        ProduceMode mode,
-        Optional<SchemaVersionRef> valueSchema) {}
+        Part key,
+        Part value,
+        List<HeaderView> headers) {
+
+    /** The key or the value: raw text, or JSON to encode with an Avro schema version. */
+    public record Part(String text, ProduceMode mode, Optional<SchemaVersionRef> schema) {
+
+        public static Part raw(String text) {
+            return new Part(text, ProduceMode.RAW, Optional.empty());
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{#if detection}
+{#include ProduceResource/modeSelect role=role avro=true oob=true /}
+<p class="text-sm">{detection.reason} <span class="muted">Latest version preselected; pick another schema or version below if it does not fit.</span></p>
+<label class="input-search">{#include icons/search /}
+  <input type="search" name="q" placeholder="Search other schemas by name" aria-label="Search {role} schemas by name" class="input"
+         hx-get="/schemas/search?role={role}" hx-trigger="keyup changed delay:300ms" hx-target="#{role}-artifact-list">
+</label>
+<div id="{role}-artifact-list"></div>
+<div id="{role}-version-picker">{#include SchemasResource/pickerVersions role=role group=detection.groupId artifact=detection.artifactId versions=versions /}</div>
+{#else}
+<label class="input-search">{#include icons/search /}
+  <input type="search" name="q" placeholder="Search schemas by name" aria-label="Search {role} schemas by name" class="input"
+         hx-get="/schemas/search?role={role}" hx-trigger="keyup changed delay:300ms, load" hx-target="#{role}-artifact-list">
+</label>
+<div id="{role}-artifact-list"></div>
+<div id="{role}-version-picker"></div>
+{/if}
