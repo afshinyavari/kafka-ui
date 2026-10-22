@@ -23,4 +23,22 @@ public class ThrowingResource {
     public String boom() {
         throw new IllegalStateException("secret-detail");
     }
+
+    @GET
+    @Path("unauthorized")
+    public String unauthorized() {
+        throw new io.quarkus.security.UnauthorizedException();
+    }
+
+    @GET
+    @Path("forbidden")
+    public String forbidden() {
+        throw new io.quarkus.security.ForbiddenException();
+    }
+
+    @GET
+    @Path("authfailed")
+    public String authFailed() {
+        throw new io.quarkus.security.AuthenticationFailedException();
+    }
 }

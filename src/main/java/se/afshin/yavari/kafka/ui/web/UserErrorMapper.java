@@ -33,12 +33,23 @@ public class UserErrorMapper implements ExceptionMapper<Throwable> {
         if (t instanceof WebApplicationException wae) {
             return wae.getResponse();
         }
+        if (t instanceof io.quarkus.security.ForbiddenException) {
+            return Response.status(403).build();
+        }
+        if (t instanceof io.quarkus.security.UnauthorizedException
+                || t instanceof io.quarkus.security.AuthenticationFailedException) {
+            return Response.status(401).build();
+        }
         UserError userError;
         if (t instanceof UserErrorException e) {
             userError = e.error();
         } else {
-            LOG.error("Unexpected error while handling request", t);
             userError = KafkaErrors.translate(t, "the requested resource");
+            if (userError.httpStatus() == 500) {
+                LOG.error("Unexpected error while handling request", t);
+            } else {
+                LOG.warnf("Request failed: %s (%s)", userError.message(), t.toString());
+            }
         }
         boolean htmx = "true".equalsIgnoreCase(headers.getHeaderString("HX-Request"));
         TemplateInstance instance = (htmx ? error.getFragment("box").instance() : error.instance()).data("error", userError);

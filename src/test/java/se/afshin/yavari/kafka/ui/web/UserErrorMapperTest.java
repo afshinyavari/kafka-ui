@@ -30,4 +30,20 @@ class UserErrorMapperTest {
                 .body(not(containsString("Exception")))
                 .body(not(containsString("secret-detail")));
     }
+
+    @Test void unauthorizedIsNot500() {
+        given().redirects().follow(false).get("/test-errors/unauthorized").then().statusCode(401);
+    }
+
+    @Test void authenticationFailedIsNot500() {
+        given().redirects().follow(false).get("/test-errors/authfailed").then().statusCode(401);
+    }
+
+    @Test void forbiddenIs403() {
+        given().get("/test-errors/forbidden").then().statusCode(403);
+    }
+
+    @Test void unknownRouteIs404() {
+        given().get("/test-errors/nope").then().statusCode(404);
+    }
 }
