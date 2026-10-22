@@ -12,12 +12,16 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import se.afshin.yavari.kafka.ui.kafka.UserError;
 import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
 import se.afshin.yavari.kafka.ui.messages.HeaderView;
+import se.afshin.yavari.kafka.ui.registry.RegistryClient;
+import se.afshin.yavari.kafka.ui.registry.RegistryException;
+import se.afshin.yavari.kafka.ui.registry.VersionSummary;
 import se.afshin.yavari.kafka.ui.security.CredentialsProvider;
 
 @Path("/topics/{name}/produce")
@@ -29,14 +33,38 @@ public class ProduceResource {
         static native TemplateInstance form(String name);
 
         static native TemplateInstance result(String name, RecordMetadata meta);
+
+        static native TemplateInstance schema(SchemaDetector.Detection detection, List<VersionSummary> versions);
     }
 
     @Inject ProduceService produce;
+    @Inject SchemaDetector detector;
+    @Inject RegistryClient registry;
     @Inject CredentialsProvider credentials;
 
     @GET
     public TemplateInstance form(@PathParam("name") String name) {
         return Templates.form(name);
+    }
+
+    /** The form's schema picker, preselecting the topic's schema (latest version) when one can be found. */
+    @GET
+    @Path("schema")
+    public TemplateInstance schema(@PathParam("name") String name) {
+        var creds = credentials.current();
+        var detection = detector.detect(creds, name);
+        if (detection.isPresent()) {
+            try {
+                var versions = registry.versions(creds, detection.get().groupId(), detection.get().artifactId())
+                        .stream().sorted(Comparator.comparingLong(VersionSummary::globalId).reversed()).toList();
+                if (!versions.isEmpty()) {
+                    return Templates.schema(detection.get(), versions);
+                }
+            } catch (RegistryException e) {
+                // fall through to the plain picker
+            }
+        }
+        return Templates.schema(null, List.of());
     }
 
     @POST

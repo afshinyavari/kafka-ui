@@ -255,3 +255,7 @@
 
 /* search results: no header row until the first match arrives */
 .results:has(tbody:empty) thead { display: none; }
+
+/* Produce form: the schema picker only applies to Avro */
+#produce-schema { display: none; }
+form:has(#produce-mode option[value="AVRO"]:checked) #produce-schema { display: block; }

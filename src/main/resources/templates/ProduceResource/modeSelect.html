@@ -1,0 +1,4 @@
+<select id="produce-mode" name="mode" class="input"{#if oob} hx-swap-oob="true"{/if}>
+  <option value="RAW">Raw text (JSON, XML, ...)</option>
+  <option value="AVRO"{#if avro} selected{/if}>Avro (schema from registry)</option>
+</select>

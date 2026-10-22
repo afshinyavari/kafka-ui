@@ -179,10 +179,55 @@ class ProduceResourceTest {
     }
 
     @Test
-    void formFragmentHasSchemaPicker() {
+    void formFragmentLoadsTheSchemaPicker() {
         given().header("HX-Request", "true").get("/topics/" + TOPIC + "/produce").then().statusCode(200)
+                // the form's hx-target is inherited; the loader must replace itself, not the result box
+                .body(containsString("hx-get=\"/topics/" + TOPIC + "/produce/schema\" hx-trigger=\"load\" hx-target=\"this\""))
+                .body(containsString("hx-post=\"/topics/" + TOPIC + "/produce\""))
+                .body(containsString("name=\"valueTemplate\""));
+    }
+
+    @Test
+    void schemaPickerPreselectsTheConventionArtifactAndAvro() throws Exception {
+        try {
+            clients.admin(new Credentials.Mtls()).createTopics(List.of(new NewTopic("order", 1, (short) 1))).all().get();
+        } catch (ExecutionException e) {
+            if (!(e.getCause() instanceof TopicExistsException)) {
+                throw e;
+            }
+        }
+        String html = given().header("HX-Request", "true").get("/topics/order/produce/schema").then().statusCode(200)
+                .body(containsString("default naming (order-value)"))
+                .body(containsString("id=\"produce-mode\""))
+                .body(containsString("hx-swap-oob=\"true\""))
+                .body(containsString("<option value=\"AVRO\" selected>"))
+                .body(containsString("name=\"artifact\" value=\"order-value\""))
+                .extract().asString();
+        assertThat(html.indexOf("<option value=\"3\">")).isLessThan(html.indexOf("<option value=\"2\">"));
+    }
+
+    @Test
+    void schemaPickerWithoutGuessIsThePlainSearch() {
+        given().header("HX-Request", "true").get("/topics/" + TOPIC + "-nothing/produce/schema").then().statusCode(200)
                 .body(containsString("hx-get=\"/schemas/search\""))
-                .body(containsString("hx-post=\"/topics/" + TOPIC + "/produce\""));
+                .body(not(containsString("produce-mode")));
+    }
+
+    @Test
+    void templateFillsAnEmptyValueAndKeepsTypedText() {
+        given().header("HX-Request", "true").formParam("version", "3").formParam("value", "")
+                .formParam("valueTemplate", "")
+                .post("/schemas/default/order-value/template").then().statusCode(200)
+                .body(containsString("&quot;id&quot; : &quot;&quot;"))
+                .body(containsString("&quot;amount&quot; : 0.0"));
+        given().header("HX-Request", "true").formParam("version", "3").formParam("value", "{\"mine\":1}")
+                .formParam("valueTemplate", "{\"old\":1}")
+                .post("/schemas/default/order-value/template").then().statusCode(200)
+                .body(containsString(">{&quot;mine&quot;:1}</textarea>"));
+        given().header("HX-Request", "true").formParam("version", "3").formParam("value", "{\r\n\"old\":1}")
+                .formParam("valueTemplate", "{\n\"old\":1}")
+                .post("/schemas/default/order-value/template").then().statusCode(200)
+                .body(containsString("&quot;amount&quot;"));
     }
 
     @Test
