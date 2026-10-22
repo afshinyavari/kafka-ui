@@ -10,9 +10,10 @@ data:
 
   # Files come from the secret volumes in deployment.yaml. To use other secret names or field names,
   # change `secretName` / `items[].key` there (the `path` values, and so these paths, stay fixed).
-  KAFKA_UI_TLS_CERT_FILE: /etc/kafka-ui/client/tls.crt
-  KAFKA_UI_TLS_KEY_FILE: /etc/kafka-ui/client/tls.key
   KAFKA_UI_TLS_CA_FILE: /etc/kafka-ui/ca/ca.pem
+  # mTLS mode only (required there, ignored in oidc mode): uncomment together with KAFKA_UI_MODE: mtls
+  # KAFKA_UI_TLS_CERT_FILE: /etc/kafka-ui/client/tls.crt
+  # KAFKA_UI_TLS_KEY_FILE: /etc/kafka-ui/client/tls.key
 
   # OIDC mode (the client secret is read from the kafka-ui-oidc secret, see deployment.yaml)
   QUARKUS_OIDC_AUTH_SERVER_URL: https://keycloak.example.com/realms/my-realm

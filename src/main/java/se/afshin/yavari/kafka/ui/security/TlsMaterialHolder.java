@@ -1,5 +1,6 @@
 package se.afshin.yavari.kafka.ui.security;
 
+import io.quarkus.runtime.Startup;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -21,7 +22,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.jboss.logging.Logger;
 import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
 
-/** Holds the current TlsMaterial, loaded lazily and reloaded when the PEM files change. */
+/**
+ * Holds the current TlsMaterial, loaded lazily and reloaded when the PEM files change. The client certificate is only
+ * used in mTLS mode (where it is required, checked at startup); in OIDC mode it is ignored even when configured, so
+ * the UI never presents its own certificate on behalf of a logged-in user.
+ */
+@Startup
 @ApplicationScoped
 public class TlsMaterialHolder implements AutoCloseable {
 
@@ -41,7 +47,25 @@ public class TlsMaterialHolder implements AutoCloseable {
 
     @Inject
     public TlsMaterialHolder(KafkaUiConfig config) {
-        this(config.tls().certFile(), config.tls().keyFile(), config.tls().caFile());
+        this(config.mode(), config.tls().certFile(), config.tls().keyFile(), config.tls().caFile());
+    }
+
+    /** @throws IllegalStateException in mTLS mode without client certificate and key */
+    public TlsMaterialHolder(Mode mode, Optional<Path> cert, Optional<Path> key, Path ca) {
+        this(clientFile(mode, cert, key, cert), clientFile(mode, cert, key, key), ca);
+    }
+
+    private static Optional<Path> clientFile(Mode mode, Optional<Path> cert, Optional<Path> key, Optional<Path> file) {
+        if (mode == Mode.OIDC) {
+            return Optional.empty();
+        }
+        if (cert.isEmpty() || key.isEmpty()) {
+            throw new IllegalStateException("mTLS mode needs the UI's client certificate and key: set "
+                    + "kafka-ui.tls.cert-file and kafka-ui.tls.key-file (KAFKA_UI_TLS_CERT_FILE, KAFKA_UI_TLS_KEY_FILE)"
+                    + " to PEM files (cert=" + cert.map(Path::toString).orElse("<not set>") + ", key="
+                    + key.map(Path::toString).orElse("<not set>") + ")");
+        }
+        return file;
     }
 
     public TlsMaterialHolder(Optional<Path> cert, Optional<Path> key, Path ca) {

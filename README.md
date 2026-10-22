@@ -43,8 +43,8 @@ Quarkus maps `kafka-ui.some-name` to `KAFKA_UI_SOME_NAME`.
 | `KAFKA_UI_BOOTSTRAP_SERVERS` | (required) | Kafka bootstrap servers |
 | `KAFKA_UI_REGISTRY_URL` | (required) | Apicurio Registry v3 API URL (the proxy), e.g. `https://proxy/apis/registry/v3` |
 | `KAFKA_UI_TLS_CA_FILE` | (required) | PEM CA bundle (may contain several certificates); trust for Kafka and the registry proxy |
-| `KAFKA_UI_TLS_CERT_FILE` | none | client certificate, PEM (required in `mtls` mode) |
-| `KAFKA_UI_TLS_KEY_FILE` | none | client key, PEM, must be **PKCS#8** (`BEGIN PRIVATE KEY`) (required in `mtls` mode) |
+| `KAFKA_UI_TLS_CERT_FILE` | none | client certificate, PEM. `mtls` mode only: required there (startup fails without it), ignored in `oidc` mode |
+| `KAFKA_UI_TLS_KEY_FILE` | none | client key, PEM, must be **PKCS#8** (`BEGIN PRIVATE KEY`). `mtls` mode only, like the certificate |
 | `KAFKA_UI_SEARCH_MAX_SCANNED` | `100000` | max messages scanned per search |
 | `KAFKA_UI_SEARCH_MAX_MATCHES` | `500` | max hits per search |
 | `KAFKA_UI_SEARCH_REGEX_TIMEOUT` | `100ms` | time limit per regexp match (protects against catastrophic backtracking) |
@@ -77,7 +77,7 @@ Manifests are in `deploy/kubernetes` (Deployment, Service, ConfigMap, kustomizat
 kubectl apply -k deploy/kubernetes
 ```
 
-- Certificates come from Kubernetes secrets mounted as volumes (no Kubernetes client in the app). The Deployment maps secret fields to fixed paths with `items`, so secret names and field names are configurable: edit `secretName` and `items[].key` (defaults: `kafka-ui-client-cert` with `tls.crt`/`tls.key`, `ca-bundle` with `ca-bundle.pem`). The ConfigMap's `KAFKA_UI_TLS_*_FILE` values point at the fixed paths under `/etc/kafka-ui/client` and `/etc/kafka-ui/ca`.
+- Certificates come from Kubernetes secrets mounted as volumes (no Kubernetes client in the app). The Deployment maps secret fields to fixed paths with `items`, so secret names and field names are configurable: edit `secretName` and `items[].key` (defaults: `kafka-ui-client-cert` with `tls.crt`/`tls.key`, `ca-bundle` with `ca-bundle.pem`). The ConfigMap's `KAFKA_UI_TLS_*_FILE` values point at the fixed paths under `/etc/kafka-ui/client` and `/etc/kafka-ui/ca`. `KAFKA_UI_TLS_CERT_FILE` / `KAFKA_UI_TLS_KEY_FILE` are commented out: they are only used in `mtls` mode (uncomment them when you set `KAFKA_UI_MODE: mtls`); in `oidc` mode the UI never presents a client certificate.
 - Probes use `/q/health/live` and `/q/health/ready` (the app includes `quarkus-smallrye-health`; `/q/health/*` is public).
 - Create secret `kafka-ui-oidc` with `client-secret` (and `state-secret` if you run several replicas).
 

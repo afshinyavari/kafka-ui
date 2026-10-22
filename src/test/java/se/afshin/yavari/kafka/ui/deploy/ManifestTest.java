@@ -52,9 +52,14 @@ class ManifestTest {
         var configMap = load("configmap.yaml");
         Map<String, String> data = at(configMap, "data");
         assertThat(data)
-                .containsEntry("KAFKA_UI_TLS_CERT_FILE", "/etc/kafka-ui/client/tls.crt")
-                .containsEntry("KAFKA_UI_TLS_KEY_FILE", "/etc/kafka-ui/client/tls.key")
-                .containsEntry("KAFKA_UI_TLS_CA_FILE", "/etc/kafka-ui/ca/ca.pem");
+                .containsEntry("KAFKA_UI_MODE", "oidc")
+                .containsEntry("KAFKA_UI_TLS_CA_FILE", "/etc/kafka-ui/ca/ca.pem")
+                // the client certificate is mTLS-only: present but commented out for the default oidc mode
+                .doesNotContainKeys("KAFKA_UI_TLS_CERT_FILE", "KAFKA_UI_TLS_KEY_FILE");
+        String raw = Files.readString(DIR.resolve("configmap.yaml"));
+        assertThat(raw)
+                .contains("# KAFKA_UI_TLS_CERT_FILE: /etc/kafka-ui/client/tls.crt")
+                .contains("# KAFKA_UI_TLS_KEY_FILE: /etc/kafka-ui/client/tls.key");
         assertThat(container.get("envFrom").toString()).contains("kafka-ui");
     }
 }

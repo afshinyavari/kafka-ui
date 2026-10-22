@@ -132,6 +132,41 @@ class TlsMaterialTest {
     }
 
     @Test
+    void oidcModeIgnoresConfiguredClientCertificate() {
+        var g = TestCerts.generate(dir);
+        var holder = new TlsMaterialHolder(Mode.OIDC, Optional.of(g.certFile()), Optional.of(g.keyFile()), g.caFile());
+        try {
+            assertFalse(holder.current().hasKeyManagers());
+            assertEquals("", holder.current().clientKeyPem());
+        } finally {
+            holder.close();
+        }
+    }
+
+    @Test
+    void mtlsModeKeepsClientCertificate() {
+        var g = TestCerts.generate(dir);
+        var holder = new TlsMaterialHolder(Mode.MTLS, Optional.of(g.certFile()), Optional.of(g.keyFile()), g.caFile());
+        try {
+            assertTrue(holder.current().hasKeyManagers());
+        } finally {
+            holder.close();
+        }
+    }
+
+    @Test
+    void mtlsModeWithoutClientCertificateFailsAtConstruction() {
+        Path ca = dir.resolve("ca.crt");
+        var e = assertThrows(IllegalStateException.class,
+                () -> new TlsMaterialHolder(Mode.MTLS, Optional.empty(), Optional.empty(), ca));
+        assertTrue(e.getMessage().contains("mTLS mode needs the UI's client certificate and key"), e.getMessage());
+        assertTrue(e.getMessage().contains("KAFKA_UI_TLS_CERT_FILE"), e.getMessage());
+        var keyOnly = assertThrows(IllegalStateException.class,
+                () -> new TlsMaterialHolder(Mode.MTLS, Optional.empty(), Optional.of(dir.resolve("k")), ca));
+        assertTrue(keyOnly.getMessage().contains("cert=<not set>"), keyOnly.getMessage());
+    }
+
+    @Test
     void missingCaFileFailsWithPathInMessage() {
         Path missing = dir.resolve("nope-ca.crt");
         var e = assertThrows(IllegalStateException.class,
