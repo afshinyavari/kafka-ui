@@ -199,7 +199,7 @@ class RegistryClientTest {
     void versionsAndVersionContent() {
         RegistryClient client = plainClient();
         String a = RegistryStubs.BASE + "/groups/default/artifacts/order-value/versions";
-        server.stubFor(get(urlEqualTo(a)).willReturn(okJson("{\"versions\":[{\"version\":\"3\",\"globalId\":11,"
+        server.stubFor(get(urlPathEqualTo(a)).willReturn(okJson("{\"versions\":[{\"version\":\"3\",\"globalId\":11,"
                 + "\"contentId\":7,\"createdOn\":\"2026-01-02T03:04:05Z\",\"state\":\"ENABLED\"}],\"count\":1}")));
         server.stubFor(get(urlEqualTo(a + "/3/content")).willReturn(ok(RegistryStubs.AVRO)));
         server.stubFor(get(urlEqualTo(a + "/3")).willReturn(okJson("{\"groupId\":null,\"artifactId\":\"order-value\","
@@ -211,6 +211,46 @@ class RegistryClientTest {
         assertThat(s.type()).isEqualTo("AVRO");
         assertThat(s.content()).isEqualTo(RegistryStubs.AVRO);
         assertThat(s.version()).isEqualTo("3");
+    }
+
+    @Test
+    void versionsPagesThroughAllResults() {
+        RegistryClient client = plainClient();
+        String a = RegistryStubs.BASE + "/groups/default/artifacts/big/versions";
+        server.stubFor(get(urlPathEqualTo(a)).withQueryParam("offset", equalTo("0")).willReturn(okJson(versionPage(1, 100, 130))));
+        server.stubFor(get(urlPathEqualTo(a)).withQueryParam("offset", equalTo("100")).willReturn(okJson(versionPage(101, 130, 130))));
+        var all = client.versions(ALICE, null, "big");
+        assertThat(all).hasSize(130);
+        assertThat(all.get(129).version()).isEqualTo("130");
+    }
+
+    private static String versionPage(int from, int to, int total) {
+        StringBuilder sb = new StringBuilder("{\"versions\":[");
+        for (int i = from; i <= to; i++) {
+            sb.append(i > from ? "," : "").append("{\"version\":\"").append(i)
+                    .append("\",\"globalId\":").append(i).append(",\"contentId\":").append(i)
+                    .append(",\"state\":\"ENABLED\"}");
+        }
+        return sb.append("],\"count\":").append(total).append("}").toString();
+    }
+
+    @Test
+    void artifactIdIsPathEncoded() {
+        RegistryClient client = plainClient();
+        server.stubFor(get(urlPathEqualTo(RegistryStubs.BASE + "/groups/default/artifacts/a%2Fb%3Fc/versions"))
+                .willReturn(okJson("{\"versions\":[],\"count\":0}")));
+        assertThat(client.versions(ALICE, null, "a/b?c")).isEmpty();
+    }
+
+    @Test
+    void sharedContentIdPicksHighestGlobalId() {
+        RegistryClient client = plainClient();
+        RegistryStubs.schema(server);
+        server.stubFor(get(urlEqualTo(RegistryStubs.BASE + "/search/versions?contentId=7")).willReturn(okJson(
+                "{\"versions\":[{\"groupId\":\"g\",\"artifactId\":\"new\",\"version\":\"2\",\"artifactType\":\"AVRO\",\"globalId\":20},"
+                + "{\"groupId\":\"g\",\"artifactId\":\"old\",\"version\":\"1\",\"artifactType\":\"AVRO\",\"globalId\":5}],\"count\":2}")));
+        assertThat(client.byId(ALICE, IdKind.CONTENT_ID, 7)).isInstanceOfSatisfying(Lookup.Found.class,
+                f -> assertThat(f.schema().artifactId()).isEqualTo("new"));
     }
 
     @Test

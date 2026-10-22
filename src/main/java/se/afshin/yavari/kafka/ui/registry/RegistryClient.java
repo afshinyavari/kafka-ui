@@ -29,6 +29,7 @@ public class RegistryClient {
 
     private static final Logger LOG = Logger.getLogger(RegistryClient.class);
     private static final String API_PATH = "/apis/registry/v3";
+    private static final int VERSIONS_PAGE = 100;
     private static final String DEFAULT_GROUP = "default";
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -59,7 +60,16 @@ public class RegistryClient {
         try {
             String content = body(credentials, idPath);
             JsonNode meta = JSON.readTree(body(credentials, "/search/versions?" + searchParam)).path("versions");
-            JsonNode first = meta.isArray() && !meta.isEmpty() ? meta.get(0) : null;
+            // A content id can be shared by several artifacts/versions; pick the highest globalId so the
+            // metadata is deterministic (the newest registration).
+            JsonNode first = null;
+            if (meta.isArray()) {
+                for (JsonNode m : meta) {
+                    if (first == null || m.path("globalId").asLong() > first.path("globalId").asLong()) {
+                        first = m;
+                    }
+                }
+            }
             List<RegistrySchema.Reference> refs = references(optionalBody(credentials, idPath + "/references"));
             return new Lookup.Found(new RegistrySchema(
                     text(first, "artifactType"),
@@ -101,15 +111,26 @@ public class RegistryClient {
 
     public List<VersionSummary> versions(Credentials credentials, String groupId, String artifactId) {
         try {
-            JsonNode root = JSON.readTree(body(credentials, artifactPath(groupId, artifactId) + "/versions"));
+            // Apicurio paginates (default limit 20), so page through until `count` is reached.
             List<VersionSummary> out = new ArrayList<>();
-            for (JsonNode v : root.path("versions")) {
-                out.add(new VersionSummary(
-                        text(v, "version"),
-                        v.path("globalId").asLong(),
-                        v.path("contentId").asLong(),
-                        instant(v, "createdOn"),
-                        text(v, "state")));
+            int offset = 0;
+            while (true) {
+                JsonNode root = JSON.readTree(body(
+                        credentials,
+                        artifactPath(groupId, artifactId) + "/versions?limit=" + VERSIONS_PAGE + "&offset=" + offset));
+                JsonNode page = root.path("versions");
+                for (JsonNode v : page) {
+                    out.add(new VersionSummary(
+                            text(v, "version"),
+                            v.path("globalId").asLong(),
+                            v.path("contentId").asLong(),
+                            instant(v, "createdOn"),
+                            text(v, "state")));
+                }
+                offset += page.size();
+                if (page.isEmpty() || offset >= root.path("count").asLong(0)) {
+                    break;
+                }
             }
             return out;
         } catch (FailedLookup f) {
