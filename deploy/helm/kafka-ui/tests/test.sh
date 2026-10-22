@@ -46,7 +46,7 @@ echo "== oidc (default mode, route)"
 render oidc "$CI/oidc.yaml" && {
   hasnt "no KAFKA_UI_TLS_CERT_FILE" oidc 'KAFKA_UI_TLS_CERT_FILE'
   hasnt "no KAFKA_UI_TLS_KEY_FILE" oidc 'KAFKA_UI_TLS_KEY_FILE'
-  eq "no client-cert volume" oidc Deployment '[.spec.template.spec.volumes[].name | select(. == "client-cert")] | length' "0"
+  hasnt "no client-cert volume" oidc 'client-cert'
   eq "mode oidc" oidc ConfigMap '.data.KAFKA_UI_MODE' "oidc"
   eq "CA file path" oidc ConfigMap '.data.KAFKA_UI_TLS_CA_FILE' "/etc/kafka-ui/ca/ca.pem"
   eq "CA secret item key" oidc Deployment '.spec.template.spec.volumes[0].secret.items[0].key' "ca-bundle.pem"
