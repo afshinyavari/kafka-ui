@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 import se.afshin.yavari.kafka.ui.security.CredentialsProvider;
+import se.afshin.yavari.kafka.ui.web.Htmx;
 
 @Path("/topics")
 @Produces(MediaType.TEXT_HTML)
@@ -53,17 +54,12 @@ public class TopicsResource {
         return tab(name, "overview");
     }
 
+    // {name}/messages is served by MessagesResource, which renders the same panel/detail templates.
+
     @GET
     @Path("{name}/settings")
     public TemplateInstance settings(@PathParam("name") String name) {
         return tab(name, "settings");
-    }
-
-    /** Placeholder until the messages tab is built. */
-    @GET
-    @Path("{name}/messages")
-    public TemplateInstance messages(@PathParam("name") String name) {
-        return tab(name, "messages");
     }
 
     /** Placeholder until the consumers tab is built. */
@@ -79,9 +75,7 @@ public class TopicsResource {
         return isFragment() ? Templates.panel(name, tab, info) : Templates.detail(name, tab, info);
     }
 
-    /** History restores need the full page even though they carry HX-Request. */
     private boolean isFragment() {
-        return "true".equalsIgnoreCase(headers.getHeaderString("HX-Request"))
-                && !"true".equalsIgnoreCase(headers.getHeaderString("HX-History-Restore-Request"));
+        return Htmx.isFragment(headers);
     }
 }

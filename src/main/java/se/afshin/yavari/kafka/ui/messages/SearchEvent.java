@@ -1,0 +1,22 @@
+package se.afshin.yavari.kafka.ui.messages;
+
+/** What a running search reports: matching messages, progress, and finally why it stopped. */
+public sealed interface SearchEvent permits SearchEvent.Match, SearchEvent.Progress, SearchEvent.Done {
+
+    String END_OF_RANGE = "end of range";
+    String CANCELLED = "cancelled";
+
+    static String scanLimit(int max) {
+        return "scan limit reached (" + max + " messages)";
+    }
+
+    static String matchLimit(int max) {
+        return "match limit reached (" + max + ")";
+    }
+
+    record Match(MessageView message) implements SearchEvent {}
+
+    record Progress(long scanned, long matched, long regexTimeouts) implements SearchEvent {}
+
+    record Done(long scanned, long matched, long regexTimeouts, String stopReason) implements SearchEvent {}
+}

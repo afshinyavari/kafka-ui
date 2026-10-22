@@ -1,0 +1,53 @@
+{#include layout}
+{#title}{name} {m.partition}/{m.offset} - Kafka UI{/title}
+{#content}
+<p class="crumb"><a href="/topics">Topics</a> / <a href="/topics/{name}">{name}</a> / <a href="/topics/{name}/messages">Messages</a> /</p>
+<h1>Partition {m.partition}, offset {m.offset}</h1>
+<table class="meta">
+  <tbody>
+    <tr><th>Partition</th><td>{m.partition}</td></tr>
+    <tr><th>Offset</th><td>{m.offset}</td></tr>
+    <tr><th>Timestamp (UTC)</th><td>{m.timestamp}</td></tr>
+  </tbody>
+</table>
+<form method="get" class="toolbar decode-as">
+  <label>Decode key as
+    <select name="keyAs" onchange="this.form.submit()">
+      <option value=""{#if keyAs.isEmpty} selected{/if}>Automatic</option>
+      {#for f in formats}
+      <option value="{f.name}"{#if keyAs == f.name} selected{/if}>{f.label}</option>
+      {/for}
+    </select>
+  </label>
+  <label>Decode value as
+    <select name="valueAs" onchange="this.form.submit()">
+      <option value=""{#if valueAs.isEmpty} selected{/if}>Automatic</option>
+      {#for f in formats}
+      <option value="{f.name}"{#if valueAs == f.name} selected{/if}>{f.label}</option>
+      {/for}
+    </select>
+  </label>
+  <noscript><button type="submit" class="btn">Apply</button></noscript>
+</form>
+<h2>Key</h2>
+<p class="muted explanation">{m.key.explanation}</p>
+<pre><code class="{m.key.codeClass}">{m.key.text}</code></pre>
+<h2>Value</h2>
+<p class="muted explanation">{m.value.explanation}</p>
+<pre><code class="{m.value.codeClass}">{m.value.text}</code></pre>
+<h2>Headers</h2>
+{#if m.headers.isEmpty}
+<p class="muted">No headers</p>
+{#else}
+<table>
+  <thead><tr><th>Key</th><th>Value</th></tr></thead>
+  <tbody>
+  {#for h in m.headers}
+    <tr><td>{h.key}</td><td>{h.value}</td></tr>
+  {/for}
+  </tbody>
+</table>
+{/if}
+<script>hljs.highlightAll();</script>
+{/content}
+{/include}

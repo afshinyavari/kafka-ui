@@ -37,3 +37,16 @@ tbody tr:hover { background: var(--bg-sidebar); }
 h2 { font-size: 16px; margin: 8px 0; }
 .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; background: var(--bg-sidebar); color: var(--fg-muted); border: 1px solid var(--border); }
 .badge-accent { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bg); }
+.btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); font: inherit; cursor: pointer; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.search-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+.search-fields label { display: flex; flex-direction: column; gap: 4px; color: var(--fg-muted); font-size: 12px; }
+.search-fields input, .search-fields select, .decode-as select { padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; font: inherit; color: var(--fg); }
+.search-status { display: flex; gap: 12px; align-items: center; margin: 8px 0; color: var(--fg-muted); }
+.error { border: 1px solid #f3c1c1; background: #fdf0f0; color: #8a1f1f; border-radius: 4px; padding: 4px 12px; margin: 8px 0; }
+td.preview { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.nowrap { white-space: nowrap; }
+table.meta { width: auto; margin-bottom: 12px; }
+pre { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 4px; padding: 0; overflow: auto; max-height: 60vh; }
+pre code { display: block; padding: 10px 12px; font-size: 12px; }
+.explanation { margin: 0 0 6px; }

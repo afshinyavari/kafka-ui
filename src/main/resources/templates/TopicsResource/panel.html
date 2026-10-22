@@ -7,7 +7,7 @@
 <div id="tab-panel">
 {#if tab == 'overview'}{#include TopicsResource/overview /}
 {#else if tab == 'settings'}{#include TopicsResource/settings /}
-{#else if tab == 'messages'}{#include TopicsResource/messages /}
+{#else if tab == 'messages'}{#include MessagesResource/tab /}
 {#else}{#include TopicsResource/consumers /}
 {/if}
 </div>

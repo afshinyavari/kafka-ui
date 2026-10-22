@@ -1,0 +1,37 @@
+{@java.lang.String name}
+{@se.afshin.yavari.kafka.ui.messages.SearchForm form}
+{@se.afshin.yavari.kafka.ui.topics.TopicInfo info}
+<form class="search-form" hx-get="/topics/{name}/messages/results" hx-target="#search-results" hx-swap="innerHTML">
+  <div class="search-fields">
+    <label>Partitions
+      <select name="partition" multiple size="3" title="None selected means all partitions">
+        {#for p in info.partitions}
+        <option value="{p.partition}"{#if form.selected(p.partition)} selected{/if}>{p.partition}</option>
+        {/for}
+      </select>
+    </label>
+    <label>From (UTC)
+      <input type="datetime-local" step="1" name="from" value="{form.from}"{#if form.byOffset} disabled{/if}>
+    </label>
+    <label>To (UTC)
+      <input type="datetime-local" step="1" name="to" value="{form.to}">
+    </label>
+    <label>
+      <span class="check"><input type="checkbox" name="byOffset" value="true"{#if form.byOffset} checked{/if}
+        onchange="this.form.offset.disabled = !this.checked; this.form.from.disabled = this.checked"> Seek by offset</span>
+      <input type="number" min="0" name="offset" placeholder="Start offset" value="{form.offset}"{#if !form.byOffset} disabled{/if}>
+    </label>
+    <label>Key regex
+      <input type="text" name="keyRegex" value="{form.keyRegex}" placeholder="e.g. ^order-">
+    </label>
+    <label>Value regex
+      <input type="text" name="valueRegex" value="{form.valueRegex}" placeholder="e.g. failed|error">
+    </label>
+  </div>
+  <div class="toolbar">
+    <button type="submit" class="btn btn-primary">Search</button>
+    <label class="check" title="Live tail is not available yet"><input type="checkbox" name="live" disabled> Live (tail)</label>
+    <span class="muted">No partition selected searches all partitions.</span>
+  </div>
+</form>
+<div id="search-results"></div>
