@@ -123,6 +123,20 @@ target/tailwind/tailwindcss-4.3.3 --input src/main/tailwind/app.css \
 Icons are inline SVGs (Lucide shapes) in `src/main/resources/templates/icons/`, included with
 `{#include icons/<name> /}`; there are no runtime CDNs.
 
+### Container image pipeline
+
+`.github/workflows/image.yml` runs `./mvnw verify` and builds the UBI 9 image (`linux/amd64` and
+`linux/arm64`) to `docker.io/alfeenz/kafka-ui` (`IMAGE` in the workflow):
+
+| Trigger | Tags pushed |
+|---------|-------------|
+| push to `main` | `main`, `sha-<short>` |
+| tag `v1.2.3` | `1.2.3`, `latest`, `sha-<short>` |
+| pull request | none (build and test only) |
+
+Setup in the GitHub repository (Settings → Secrets and variables → Actions): secret `DOCKERHUB_TOKEN`, a Docker
+Hub access token with Read & Write (`gh secret set DOCKERHUB_TOKEN`).
+
 ## Known limitations
 
 - **Avro produce:** schemas containing `fixed` fields cannot be produced (messages with such fields still decode fine).

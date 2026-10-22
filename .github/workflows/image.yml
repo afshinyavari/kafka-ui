@@ -1,0 +1,78 @@
+name: image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOCKERHUB_USERNAME: alfeenz
+  IMAGE: docker.io/alfeenz/kafka-ui
+  PUSH: ${{ github.event_name != 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw -B verify
+
+      - name: Check registry token
+        if: env.PUSH == 'true'
+        env:
+          # Docker Hub access token with Read & Write
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          [ -n "$DOCKERHUB_TOKEN" ] || { echo "::error::Repository secret DOCKERHUB_TOKEN is not set"; exit 1; }
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: env.PUSH == 'true'
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=kafka-ui
+            org.opencontainers.image.description=Kafka UI (Quarkus + htmx) for Strimzi and Apicurio Registry 3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/main/docker/Dockerfile.jvm
+          # The Dockerfile only copies the JVM build output, so multi-arch needs no emulation
+          platforms: linux/amd64,linux/arm64
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
