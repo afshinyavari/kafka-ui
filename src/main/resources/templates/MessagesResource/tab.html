@@ -35,3 +35,30 @@
   </div>
 </form>
 <div id="search-results"></div>
+{|<script>
+  if (!window.streamExpiry) {
+    window.streamExpiry = true;
+    document.body.addEventListener('htmx:sseMessage', function (evt) {
+      if (!evt.detail || evt.detail.type !== 'expired') return;
+      var counts = evt.detail.data;
+      var show = function (text) {
+        var box = document.createElement('div');
+        box.id = 'search-stream';
+        box.className = 'search-status';
+        box.textContent = text;
+        htmx.swap('#search-stream', box.outerHTML, {swapStyle: 'outerHTML'});
+      };
+      fetch('/session/ping', {redirect: 'manual', credentials: 'same-origin'}).then(function (r) {
+        if (r.status !== 200) {
+          show('Your session expired – reload the page');
+        } else if (document.getElementById('tail-live')) {
+          htmx.swap('#search-stream', document.getElementById('tail-live').innerHTML, {swapStyle: 'outerHTML'});
+        } else {
+          show('Search stopped: session refreshed, run again – ' + counts);
+        }
+      }).catch(function () {
+        show('Your session expired – reload the page');
+      });
+    });
+  }
+</script>|}

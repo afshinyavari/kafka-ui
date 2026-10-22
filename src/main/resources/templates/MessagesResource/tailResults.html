@@ -10,6 +10,7 @@
   {|<button type="button" class="btn" onclick="htmx.swap('#search-stream', document.getElementById('tail-paused').innerHTML, {swapStyle: 'outerHTML'})">Pause</button>|}
   <div hidden sse-swap="match" hx-target="#tail-rows" hx-swap="afterbegin"></div>
   <div hidden sse-swap="done" hx-target="#search-stream" hx-swap="outerHTML"></div>
+  <div hidden sse-swap="expired"></div>
 </div>
 <template id="tail-paused"><div id="search-stream" class="search-status">Paused
   {|<button type="button" class="btn" onclick="htmx.swap('#search-stream', document.getElementById('tail-live').innerHTML, {swapStyle: 'outerHTML'})">Resume</button>|}
@@ -19,6 +20,7 @@
   {|<button type="button" class="btn" onclick="htmx.swap('#search-stream', document.getElementById('tail-paused').innerHTML, {swapStyle: 'outerHTML'})">Pause</button>|}
   <div hidden sse-swap="match" hx-target="#tail-rows" hx-swap="afterbegin"></div>
   <div hidden sse-swap="done" hx-target="#search-stream" hx-swap="outerHTML"></div>
+  <div hidden sse-swap="expired"></div>
 </div></template>
 <table class="results">
   <thead><tr><th>Partition</th><th>Offset</th><th>Timestamp (UTC)</th><th>Key</th><th>Value</th></tr></thead>

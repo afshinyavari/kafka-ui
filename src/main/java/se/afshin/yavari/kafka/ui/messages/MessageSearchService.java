@@ -5,6 +5,7 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.smallrye.mutiny.subscription.MultiEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public class MessageSearchService {
     private final KafkaUiConfig.Search limits;
     private final Duration idleTimeout;
     private final RecordFilter filter;
+    private final Clock clock;
 
     @Inject
     public MessageSearchService(KafkaClients clients, MessageDecoder decoder, KafkaUiConfig config) {
@@ -56,6 +58,12 @@ public class MessageSearchService {
 
     MessageSearchService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
             KafkaUiConfig.Search limits, Duration idleTimeout) {
+        this(consumers, decoder, limits, idleTimeout, Clock.systemUTC());
+    }
+
+    MessageSearchService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
+            KafkaUiConfig.Search limits, Duration idleTimeout, Clock clock) {
+        this.clock = clock;
         this.consumers = consumers;
         this.limits = limits;
         this.idleTimeout = idleTimeout;
@@ -77,8 +85,14 @@ public class MessageSearchService {
             Scan scan = new Scan(credentials, request, emitter, cancelled);
             String reason = scan.run(consumer);
             if (!cancelled.isCancelled()) {
-                emitter.emit(scan.tally.progress());
-                emitter.emit(new SearchEvent.Done(scan.tally.scanned, scan.tally.matched, scan.tally.timeouts, reason));
+                Tally t = scan.tally;
+                if (scan.expired) {
+                    emitter.emit(new SearchEvent.Expired(t.scanned, t.matched, t.timeouts));
+                    emitter.complete();
+                    return;
+                }
+                emitter.emit(t.progress());
+                emitter.emit(new SearchEvent.Done(t.scanned, t.matched, t.timeouts, reason));
                 emitter.complete();
             }
         } catch (WakeupException e) {
@@ -97,6 +111,8 @@ public class MessageSearchService {
         private final MultiEmitter<? super SearchEvent> emitter;
         private final Cancellation cancelled;
         final Tally tally = new Tally();
+        /** Set when the bearer token expired mid-scan; the caller then reports {@code Expired} instead of {@code Done}. */
+        boolean expired;
 
         Scan(Credentials credentials, SearchRequest request, MultiEmitter<? super SearchEvent> emitter,
                 Cancellation cancelled) {
@@ -116,6 +132,10 @@ public class MessageSearchService {
             long toMs = request.to().toEpochMilli();
             long lastProgress = System.nanoTime();
             while (!ends.isEmpty() && !cancelled.isCancelled()) {
+                if (credentials.expiredAt(clock.instant())) {
+                    expired = true;
+                    return SearchEvent.CANCELLED;
+                }
                 if (System.nanoTime() - lastProgress > idleTimeout.toNanos()) {
                     return SearchEvent.noProgress(idleTimeout);
                 }

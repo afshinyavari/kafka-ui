@@ -5,6 +5,7 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.smallrye.mutiny.subscription.MultiEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -23,7 +24,7 @@ import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
 /**
  * Follows a topic from its current end and streams the records whose decoded key/value match the regexes. Emits
  * {@link SearchEvent.Match} and periodic {@link SearchEvent.Progress} (the first one as soon as the consumer is
- * positioned at the end); never {@code Done}. Runs on a worker thread until the subscription is cancelled.
+ * positioned at the end); never {@code Done}. Ends with {@link SearchEvent.Expired} when the bearer token expires. Runs on a worker thread until the subscription is cancelled.
  */
 @ApplicationScoped
 public class TailService {
@@ -33,6 +34,7 @@ public class TailService {
 
     private final Function<Credentials, Consumer<byte[], byte[]>> consumers;
     private final RecordFilter filter;
+    private final Clock clock;
 
     @Inject
     public TailService(KafkaClients clients, MessageDecoder decoder, KafkaUiConfig config) {
@@ -41,6 +43,12 @@ public class TailService {
 
     TailService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
             Duration regexTimeout) {
+        this(consumers, decoder, regexTimeout, Clock.systemUTC());
+    }
+
+    TailService(Function<Credentials, Consumer<byte[], byte[]>> consumers, MessageDecoder decoder,
+            Duration regexTimeout, Clock clock) {
+        this.clock = clock;
         this.consumers = consumers;
         this.filter = new RecordFilter(decoder, regexTimeout);
     }
@@ -70,6 +78,11 @@ public class TailService {
             long lastReport = System.nanoTime();
             long reported = 0;
             while (!cancelled.isCancelled()) {
+                if (credentials.expiredAt(clock.instant())) {
+                    emitter.emit(new SearchEvent.Expired(tally.scanned, tally.matched, tally.timeouts));
+                    emitter.complete();
+                    return;
+                }
                 for (ConsumerRecord<byte[], byte[]> r : consumer.poll(POLL)) {
                     if (cancelled.isCancelled()) {
                         return;

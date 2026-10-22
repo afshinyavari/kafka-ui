@@ -57,6 +57,8 @@ public class MessagesResource {
 
         static native TemplateInstance done(SearchEvent.Done d);
 
+        static native TemplateInstance expired(SearchEvent.Expired e);
+
         static native TemplateInstance failed(String message);
 
         static native TemplateInstance detail(String name, MessageView m, String keyAs, String valueAs,
@@ -116,7 +118,7 @@ public class MessagesResource {
         }
     }
 
-    /** Live tail as server-sent events {@code match} (row HTML) and {@code progress}; {@code done} only on failure. */
+    /** Live tail as server-sent events {@code match} (row HTML) and {@code progress}; {@code done} only on failure, {@code expired} when the token expires. */
     @GET
     @Path("tail")
     @Produces(MediaType.SERVER_SENT_EVENTS)
@@ -134,6 +136,7 @@ public class MessagesResource {
                     case SearchEvent.Match m -> event(sse, "match", Templates.row(name, m.message()));
                     case SearchEvent.Progress p -> event(sse, "progress", Templates.tailProgress(p));
                     case SearchEvent.Done d -> event(sse, "done", Templates.done(d));
+                    case SearchEvent.Expired x -> event(sse, "expired", Templates.expired(x));
                 })
                 .onFailure().recoverWithItem(t -> event(sse, "done", Templates.failed(failure(name, t))));
     }
@@ -156,6 +159,7 @@ public class MessagesResource {
                     case SearchEvent.Match m -> event(sse, "match", Templates.row(name, m.message()));
                     case SearchEvent.Progress p -> event(sse, "progress", Templates.progress(p));
                     case SearchEvent.Done d -> event(sse, "done", Templates.done(d));
+                    case SearchEvent.Expired x -> event(sse, "expired", Templates.expired(x));
                 })
                 .onFailure().recoverWithItem(t -> event(sse, "done", Templates.failed(failure(name, t))));
     }

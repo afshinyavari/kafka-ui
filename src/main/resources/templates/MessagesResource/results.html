@@ -6,6 +6,7 @@
   {|<button type="button" class="btn" onclick="htmx.swap('#search-stream', document.getElementById('search-cancelled').innerHTML, {swapStyle: 'outerHTML'})">Cancel</button>|}
   <div hidden sse-swap="match" hx-target="#search-rows" hx-swap="beforeend"></div>
   <div hidden sse-swap="done" hx-target="#search-stream" hx-swap="outerHTML"></div>
+  <div hidden sse-swap="expired"></div>
 </div>
 <template id="search-cancelled"><div id="search-stream" class="search-status">Stopped: cancelled</div></template>
 <table class="results">

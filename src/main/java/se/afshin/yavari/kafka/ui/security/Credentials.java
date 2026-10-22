@@ -8,6 +8,11 @@ public sealed interface Credentials permits Credentials.Mtls, Credentials.Bearer
     /** Key that separates cached data between identities. */
     String cacheScope();
 
+    /** True when these credentials can no longer be used at {@code now}; the shared client certificate never expires. */
+    default boolean expiredAt(Instant now) {
+        return false;
+    }
+
     record Mtls() implements Credentials {
         @Override
         public String cacheScope() {
@@ -19,6 +24,11 @@ public sealed interface Credentials permits Credentials.Mtls, Credentials.Bearer
         @Override
         public String cacheScope() {
             return "user:" + subject;
+        }
+
+        @Override
+        public boolean expiredAt(Instant now) {
+            return expiresAt != null && !now.isBefore(expiresAt);
         }
 
         /** Never print the token. */
