@@ -46,6 +46,12 @@ class KafkaClientPropertiesTest {
     }
 
     @Test
+    void consumersNeverAutoCreateTopics() {
+        Properties p = KafkaClientProperties.forConsumer(cfg(Mode.MTLS), new Credentials.Mtls(), tls);
+        assertThat(p).containsEntry("allow.auto.create.topics", "false");
+    }
+
+    @Test
     void mtlsUsesSslWithInlinePemAndNoSasl() {
         Properties p = KafkaClientProperties.forAdmin(cfg(Mode.MTLS), new Credentials.Mtls(), tls);
         assertThat(p).containsEntry("security.protocol", "SSL")

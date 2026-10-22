@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -14,6 +15,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import se.afshin.yavari.kafka.ui.config.IdLocation;
 import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
+import se.afshin.yavari.kafka.ui.kafka.KafkaClientProperties;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
 import se.afshin.yavari.kafka.ui.kafka.KafkaErrors;
 import se.afshin.yavari.kafka.ui.kafka.UserError;
@@ -36,25 +38,57 @@ public class ProduceService {
     private static final long SEND_TIMEOUT_SECONDS = 30;
     private static final long CLOSE_TIMEOUT_SECONDS = 10;
 
+    /** The number of partitions of an existing topic; fails with a user error when it does not exist. */
+    @FunctionalInterface
+    interface PartitionCount {
+        int of(Credentials credentials, String topic);
+    }
+
     private final Function<Credentials, Producer<byte[], byte[]>> producers;
+    private final PartitionCount partitionCount;
     private final RegistryClient registry;
     private final KafkaUiConfig.Produce config;
 
     @Inject
     public ProduceService(KafkaClients clients, RegistryClient registry, KafkaUiConfig config) {
-        this(clients::newProducer, registry, config.produce());
+        this(clients::newProducer, (c, topic) -> partitionCount(clients, c, topic), registry, config.produce());
     }
 
     ProduceService(
             Function<Credentials, Producer<byte[], byte[]>> producers,
+            PartitionCount partitionCount,
             RegistryClient registry,
             KafkaUiConfig.Produce config) {
         this.producers = producers;
+        this.partitionCount = partitionCount;
         this.registry = registry;
         this.config = config;
     }
 
+    /** Describes the topic (needs Describe, which any writer has) without the producer's auto-create metadata path. */
+    private static int partitionCount(KafkaClients clients, Credentials credentials, String topic) {
+        try {
+            return clients.admin(credentials).describeTopics(List.of(topic)).allTopicNames()
+                    .get(KafkaClientProperties.BLOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS).get(topic).partitions().size();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new UserErrorException(KafkaErrors.translate(e, "topic " + topic));
+        } catch (ExecutionException | java.util.concurrent.TimeoutException | RuntimeException e) {
+            throw new UserErrorException(KafkaErrors.translate(e, "topic " + topic));
+        }
+    }
+
+    /** Fails with "Topic X does not exist." (404) or an invalid-partition error (400) before anything is sent. */
+    private void checkTarget(Credentials credentials, ProduceRequest req) {
+        int partitions = partitionCount.of(credentials, req.topic());
+        req.partition().filter(p -> p >= partitions).ifPresent(p -> {
+            throw invalid("Partition " + p + " does not exist in topic " + req.topic() + " (it has " + partitions
+                    + (partitions == 1 ? " partition" : " partitions") + ", numbered from 0).");
+        });
+    }
+
     public RecordMetadata produce(Credentials credentials, ProduceRequest req) {
+        checkTarget(credentials, req);
         byte[] key = req.key() == null || req.key().isEmpty() ? null : req.key().getBytes(StandardCharsets.UTF_8);
         var headers = new RecordHeaders();
         for (var h : req.headers()) {

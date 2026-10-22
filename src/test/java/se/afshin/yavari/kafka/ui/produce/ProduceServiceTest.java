@@ -55,6 +55,7 @@ class ProduceServiceTest {
     private TlsMaterialHolder holder;
     private RegistryClient registry;
     private MockProducer<byte[], byte[]> producer;
+    private int partitions = 1;
 
     @BeforeEach
     void setUp() {
@@ -84,12 +85,16 @@ class ProduceServiceTest {
     }
 
     private ProduceService service(IdLocation location, IdKind kind) {
-        return new ProduceService(c -> producer, registry, new KafkaUiConfig.Produce() {
+        return new ProduceService(c -> producer, (c, t) -> partitions, registry, config(location, kind));
+    }
+
+    private static KafkaUiConfig.Produce config(IdLocation location, IdKind kind) {
+        return new KafkaUiConfig.Produce() {
             @Override public IdLocation idLocation() { return location; }
             @Override public IdKind idKind() { return kind; }
             @Override public String valueHeaderPrefix() { return "apicurio.value."; }
             @Override public String keyHeaderPrefix() { return "apicurio.key."; }
-        });
+        };
     }
 
     private static ProduceRequest raw(String value) {
@@ -186,7 +191,7 @@ class ProduceServiceTest {
                 return send(record, null);
             }
         };
-        var svc = new ProduceService(c -> denying, registry, new KafkaUiConfig.Produce() {
+        var svc = new ProduceService(c -> denying, (c, t) -> 1, registry, new KafkaUiConfig.Produce() {
             @Override public IdLocation idLocation() { return IdLocation.PAYLOAD; }
             @Override public IdKind idKind() { return IdKind.CONTENT_ID; }
             @Override public String valueHeaderPrefix() { return "apicurio.value."; }
@@ -195,5 +200,32 @@ class ProduceServiceTest {
         assertThatThrownBy(() -> svc.produce(CREDS, raw("x")))
                 .isInstanceOf(UserErrorException.class)
                 .hasMessage("You don't have permission to access topic orders.");
+    }
+
+    @Test
+    void unknownTopicFailsBeforeSending() {
+        var svc = new ProduceService(c -> producer, (c, t) -> {
+            throw new UserErrorException(se.afshin.yavari.kafka.ui.kafka.KafkaErrors.translate(
+                    new org.apache.kafka.common.errors.UnknownTopicOrPartitionException("x"), "topic " + t));
+        }, registry, config(IdLocation.PAYLOAD, IdKind.CONTENT_ID));
+        assertThatThrownBy(() -> svc.produce(CREDS, raw("x")))
+                .isInstanceOf(UserErrorException.class)
+                .hasMessage("Topic orders does not exist.")
+                .satisfies(e -> assertThat(((UserErrorException) e).error().httpStatus()).isEqualTo(404));
+        assertThat(producer.history()).isEmpty();
+    }
+
+    @Test
+    void partitionBeyondTheTopicIsAValidationError() {
+        partitions = 3;
+        var req = new ProduceRequest("orders", Optional.of(3), "", "x", List.of(), ProduceMode.RAW, Optional.empty());
+        assertThatThrownBy(() -> service(IdLocation.PAYLOAD, IdKind.CONTENT_ID).produce(CREDS, req))
+                .isInstanceOf(UserErrorException.class)
+                .hasMessage("Partition 3 does not exist in topic orders (it has 3 partitions, numbered from 0).")
+                .satisfies(e -> assertThat(((UserErrorException) e).error().httpStatus()).isEqualTo(400));
+        assertThat(producer.history()).isEmpty();
+        var ok = new ProduceRequest("orders", Optional.of(2), "", "x", List.of(), ProduceMode.RAW, Optional.empty());
+        service(IdLocation.PAYLOAD, IdKind.CONTENT_ID).produce(CREDS, ok);
+        assertThat(producer.history()).hasSize(1);
     }
 }

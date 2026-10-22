@@ -201,6 +201,13 @@ class MessagesResourceTest {
     }
 
     @Test
+    void searchingAnUnknownTopicDoesNotCreateIt() throws Exception {
+        String body = given().get("/topics/search-ghost/messages/search").then().statusCode(200).extract().asString();
+        assertThat(body).contains("event:done").contains("Topic search-ghost does not exist.");
+        assertThat(clients.admin(new Credentials.Mtls()).listTopics().names().get()).doesNotContain("search-ghost");
+    }
+
+    @Test
     void streamWithInvalidRegexEndsWithError() throws Exception {
         ensureTopic();
         String body = given().accept("text/event-stream").queryParam("keyRegex", "[")

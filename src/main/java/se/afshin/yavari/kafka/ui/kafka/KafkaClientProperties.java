@@ -41,6 +41,8 @@ public final class KafkaClientProperties {
         p.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         // never silently jump to the end when retention moves the log start under a running scan
         p.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        // reading (or mistyping) a topic name must never create the topic on a broker with auto-create enabled
+        p.put(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, "false");
         return p;
     }
 

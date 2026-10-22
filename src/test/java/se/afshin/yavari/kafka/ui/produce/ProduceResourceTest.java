@@ -122,6 +122,24 @@ class ProduceResourceTest {
     }
 
     @Test
+    void unknownTopicIsNotFoundAndNotCreated() throws Exception {
+        given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "x")
+                .post("/topics/produce-ghost/produce").then().statusCode(404)
+                .body(containsString("Topic produce-ghost does not exist."));
+        assertThat(clients.admin(new Credentials.Mtls()).listTopics().names().get()).doesNotContain("produce-ghost");
+    }
+
+    @Test
+    void partitionBeyondTheTopicIsAValidationError() throws Exception {
+        ensureTopic();
+        given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "x")
+                .formParam("partition", "5")
+                .post("/topics/" + TOPIC + "/produce").then().statusCode(400)
+                .body(containsString("Partition 5 does not exist in topic " + TOPIC
+                        + " (it has 1 partition, numbered from 0)."));
+    }
+
+    @Test
     void negativeOrNonNumericPartitionIsAValidationError() throws Exception {
         ensureTopic();
         for (String bad : new String[] {"-1", "abc"}) {
