@@ -202,6 +202,22 @@ class MessagesResourceTest {
     }
 
     @Test
+    void tabShowsSearchLimits() throws Exception {
+        ensureTopic();
+        given().header("HX-Request", "true").get("/topics/" + TOPIC + "/messages").then().statusCode(200)
+                .body(containsString("Scans up to 100000 messages, shows up to 500 matches."));
+    }
+
+    @Test
+    void pagesMayNotBeFramed() {
+        for (String path : List.of("/topics", "/css/app.css")) {
+            given().get(path).then()
+                    .header("X-Frame-Options", "DENY")
+                    .header("Content-Security-Policy", "frame-ancestors 'none'");
+        }
+    }
+
+    @Test
     void searchingAnUnknownTopicDoesNotCreateIt() throws Exception {
         String body = given().get("/topics/search-ghost/messages/search").then().statusCode(200).extract().asString();
         assertThat(body).contains("event:done").contains("Topic search-ghost does not exist.");

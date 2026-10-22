@@ -13,7 +13,7 @@
   <tbody>
   {#for g in groups}
     <tr>
-      <td><a href="/consumers/{g.groupId}">{g.groupId}</a></td>
+      <td><a href="/consumers/{g.groupId.urlEnc}">{g.groupId}</a></td>
       <td><span class="badge">{g.state}</span></td>
       <td>{g.members}</td>
       <td>{g.topics}</td>

@@ -290,6 +290,29 @@ class MessageSearchServiceTest {
     }
 
     @Test
+    void fetchThatKafkaNeverDeliversIsATimeoutNotNotFound() throws Exception {
+        String topic = topic(1);
+        produceMany(topic, 5);
+        Properties p = new Properties();
+        p.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                ConfigProvider.getConfig().getValue("kafka.bootstrap.servers", String.class));
+        p.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        p.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        Function<Credentials, Consumer<byte[], byte[]>> silent = c -> new KafkaConsumer<byte[], byte[]>(p) {
+            @Override
+            public ConsumerRecords<byte[], byte[]> poll(Duration timeout) {
+                return ConsumerRecords.empty();
+            }
+        };
+        var service = new MessageSearchService(silent, decoder, limits(100_000, 500));
+        assertThatThrownBy(() -> service.fetch(CREDS, topic, 0, 2, null, null))
+                .isInstanceOf(se.afshin.yavari.kafka.ui.kafka.UserErrorException.class)
+                .hasMessage("Kafka did not respond in time.")
+                .satisfies(e -> assertThat(((se.afshin.yavari.kafka.ui.kafka.UserErrorException) e).error()
+                        .httpStatus()).isEqualTo(504));
+    }
+
+    @Test
     void slowBatchIsNotMistakenForAStall() throws Exception {
         String topic = topic(1);
         produceMany(topic, 5);

@@ -97,7 +97,8 @@ public class MessagesResource {
                 .data("name", name)
                 .data("tab", "messages")
                 .data("info", info)
-                .data("form", form(new SearchParams()));
+                .data("form", form(new SearchParams()))
+                .data("limits", config.search());
     }
 
     /** Validates the form and answers with the streaming results area, or an inline error. */

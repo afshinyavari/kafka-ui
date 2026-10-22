@@ -43,6 +43,14 @@ class KafkaErrorsTest {
         assertThat(e.httpStatus()).isEqualTo(401);
     }
 
+    @Test void sslAuthentication() {
+        var e = KafkaErrors.translate(new ExecutionException(
+                new org.apache.kafka.common.errors.SslAuthenticationException("x")), "topic orders");
+        assertThat(e.title()).isEqualTo("TLS handshake failed");
+        assertThat(e.message()).isEqualTo("Kafka rejected the UI's TLS certificate.");
+        assertThat(e.httpStatus()).isEqualTo(502);
+    }
+
     @Test void timeout() {
         var e = KafkaErrors.translate(new ExecutionException(new TimeoutException("x")), "topic orders");
         assertThat(e.message()).isEqualTo("Kafka did not respond in time.");
@@ -62,10 +70,6 @@ class KafkaErrorsTest {
     }
 
     @Test void permissionsNullMeansAllowed() {
-        assertThat(Permissions.canDescribeAcls(null)).isTrue();
-        assertThat(Permissions.canDescribeAcls(Set.of(AclOperation.DESCRIBE))).isTrue();
-        assertThat(Permissions.canDescribeAcls(Set.of(AclOperation.ALL))).isTrue();
-        assertThat(Permissions.canDescribeAcls(Set.of(AclOperation.READ))).isFalse();
         assertThat(Permissions.canProduce(topic(null))).isTrue();
         assertThat(Permissions.canProduce(topic(Set.of(AclOperation.WRITE)))).isTrue();
         assertThat(Permissions.canProduce(topic(Set.of(AclOperation.READ)))).isFalse();

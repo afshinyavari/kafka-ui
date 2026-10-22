@@ -128,4 +128,21 @@ class GroupsResourceTest {
                 .body(containsString("class=\"active\">Consumers</a>"))
                 .body(not(containsString("coming soon")));
     }
+
+    @Test void groupIdsAreUrlEncodedInLinks() throws Exception {
+        group("gr-enc", "gr enc&g", 3);
+        given().get("/consumers").then().statusCode(200)
+                .body(containsString("<a href=\"/consumers/gr%20enc%26g\">gr enc&amp;g</a>"));
+        // the links are followed as written (already encoded)
+        given().urlEncodingEnabled(false).get("/consumers/gr%20enc%26g").then().statusCode(200)
+                .body(containsString("hx-get=\"/consumers/gr%20enc%26g/reset\""));
+        given().urlEncodingEnabled(false).header("HX-Request", "true").get("/consumers/gr%20enc%26g/reset").then().statusCode(200)
+                .body(containsString("hx-post=\"/consumers/gr%20enc%26g/reset\""));
+        given().header("HX-Request", "true").get("/topics/gr-enc/consumers").then().statusCode(200)
+                .body(containsString("<a href=\"/consumers/gr%20enc%26g\">"));
+    }
+
+    @Test void consumerPagesVaryOnHtmxHeaders() {
+        given().get("/consumers").then().header("Vary", containsString("HX-Request"));
+    }
 }

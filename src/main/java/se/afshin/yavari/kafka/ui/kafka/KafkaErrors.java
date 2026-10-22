@@ -5,6 +5,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.kafka.common.errors.ClusterAuthorizationException;
 import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
+import org.apache.kafka.common.errors.SslAuthenticationException;
 import org.apache.kafka.common.errors.TopicAuthorizationException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 
@@ -26,6 +27,9 @@ public final class KafkaErrors {
             return new UserError("Session not accepted by Kafka",
                     "Kafka rejected your login token. Try reloading the page; if it persists, ask an administrator.",
                     401);
+        }
+        if (cause instanceof SslAuthenticationException) {
+            return new UserError("TLS handshake failed", "Kafka rejected the UI's TLS certificate.", 502);
         }
         if (cause instanceof org.apache.kafka.common.errors.TimeoutException
                 || cause instanceof java.util.concurrent.TimeoutException) {

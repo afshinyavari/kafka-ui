@@ -31,7 +31,7 @@
   <div class="toolbar">
     <button type="submit" class="btn btn-primary">Search</button>
     <label class="check" title="Follow new messages as they arrive (uses partitions and regexes only)"><input type="checkbox" name="live" value="true"> Live (tail)</label>
-    <span class="muted">No partition selected searches all partitions.</span>
+    <span class="muted">No partition selected searches all partitions. Scans up to {limits.maxScanned} messages, shows up to {limits.maxMatches} matches.</span>
   </div>
 </form>
 <div id="search-results"></div>

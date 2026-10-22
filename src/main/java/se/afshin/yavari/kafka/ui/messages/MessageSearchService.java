@@ -23,6 +23,8 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
+import se.afshin.yavari.kafka.ui.kafka.UserError;
+import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
 import se.afshin.yavari.kafka.ui.security.Credentials;
 import se.afshin.yavari.kafka.ui.serde.Format;
 import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
@@ -243,7 +245,7 @@ public class MessageSearchService {
 
     /**
      * Reads exactly one record. {@code keyAs}/{@code valueAs} null decode automatically. Empty when the offset is
-     * outside the partition or no longer exists (compaction).
+     * outside the partition or no longer exists (compaction); a 504 user error when Kafka does not deliver it in time.
      */
     public Optional<MessageView> fetch(Credentials credentials, String topic, int partition, long offset,
             Format keyAs, Format valueAs) {
@@ -275,7 +277,7 @@ public class MessageSearchService {
                     return Optional.empty();
                 }
             }
-            return Optional.empty();
+            throw new UserErrorException(new UserError("Kafka not responding", "Kafka did not respond in time.", 504));
         }
     }
 }

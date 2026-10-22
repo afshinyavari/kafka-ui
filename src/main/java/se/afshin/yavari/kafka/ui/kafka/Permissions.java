@@ -18,10 +18,6 @@ public final class Permissions {
         return allows(group.authorizedOperations(), AclOperation.READ);
     }
 
-    public static boolean canDescribeAcls(Set<AclOperation> clusterOps) {
-        return allows(clusterOps, AclOperation.DESCRIBE);
-    }
-
     /** A null set means the broker has no authorizer, so everything is allowed. */
     private static boolean allows(Set<AclOperation> ops, AclOperation needed) {
         return ops == null || ops.contains(needed) || ops.contains(AclOperation.ALL);

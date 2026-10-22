@@ -10,7 +10,7 @@
 {#else if group.active}
   <button type="button" class="btn" disabled title="Stop all consumers in group {group.groupId} before resetting offsets.">Reset offsets</button>
 {#else}
-  <button type="button" class="btn btn-primary" hx-get="/consumers/{group.groupId}/reset" hx-target="#reset-area" hx-swap="innerHTML">Reset offsets</button>
+  <button type="button" class="btn btn-primary" hx-get="/consumers/{group.groupId.urlEnc}/reset" hx-target="#reset-area" hx-swap="innerHTML">Reset offsets</button>
 {/if}
 </div>
 <div id="reset-area"></div>

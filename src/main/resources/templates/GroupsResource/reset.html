@@ -1,5 +1,5 @@
 {@se.afshin.yavari.kafka.ui.groups.GroupDetail group}
-<form class="reset-form" hx-post="/consumers/{group.groupId}/reset" hx-target="#reset-result" hx-swap="innerHTML"
+<form class="reset-form" hx-post="/consumers/{group.groupId.urlEnc}/reset" hx-target="#reset-result" hx-swap="innerHTML"
       hx-confirm="Reset the offsets of group {group.groupId}? Its consumers will resume from the new offsets.">
   <h2>Reset offsets</h2>
   {#if group.offsets.isEmpty}
