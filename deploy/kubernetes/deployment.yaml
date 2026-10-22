@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+spec:
+  replicas: 1   # with more than one replica, also set QUARKUS_OIDC_AUTHENTICATION_STATE_SECRET (see README)
+  selector:
+    matchLabels:
+      app: kafka-ui
+  template:
+    metadata:
+      labels:
+        app: kafka-ui
+    spec:
+      containers:
+        - name: kafka-ui
+          image: kafka-ui:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: kafka-ui
+          env:
+            - name: QUARKUS_OIDC_CREDENTIALS_SECRET
+              valueFrom:
+                secretKeyRef: { name: kafka-ui-oidc, key: client-secret, optional: true }   # oidc mode only
+            # - name: QUARKUS_OIDC_AUTHENTICATION_STATE_SECRET   # required with replicas > 1 (min 32 chars)
+            #   valueFrom:
+            #     secretKeyRef: { name: kafka-ui-oidc, key: state-secret }
+          volumeMounts:
+            - { name: client-cert, mountPath: /etc/kafka-ui/client, readOnly: true }
+            - { name: ca-bundle, mountPath: /etc/kafka-ui/ca, readOnly: true }
+          readinessProbe:
+            httpGet: { path: /q/health/ready, port: http }
+          livenessProbe:
+            httpGet: { path: /q/health/live, port: http }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { memory: 768Mi }
+      volumes:
+        # Change secretName and the `key` values to match your secrets; keep `path` (the ConfigMap points at it).
+        - name: client-cert
+          secret:
+            secretName: kafka-ui-client-cert
+            optional: true   # only needed in mtls mode
+            items:
+              - { key: tls.crt, path: tls.crt }
+              - { key: tls.key, path: tls.key }
+        - name: ca-bundle
+          secret:
+            secretName: ca-bundle
+            items:
+              - { key: ca-bundle.pem, path: ca.pem }

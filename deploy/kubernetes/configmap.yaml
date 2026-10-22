@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-ui
+data:
+  # oidc (default, production) | mtls (test environments only, no login)
+  KAFKA_UI_MODE: oidc
+  KAFKA_UI_BOOTSTRAP_SERVERS: my-cluster-kafka-bootstrap.kafka.svc:9093
+  KAFKA_UI_REGISTRY_URL: https://apicurio-proxy.kafka.svc/apis/registry/v3
+
+  # Files come from the secret volumes in deployment.yaml. To use other secret names or field names,
+  # change `secretName` / `items[].key` there (the `path` values, and so these paths, stay fixed).
+  KAFKA_UI_TLS_CERT_FILE: /etc/kafka-ui/client/tls.crt
+  KAFKA_UI_TLS_KEY_FILE: /etc/kafka-ui/client/tls.key
+  KAFKA_UI_TLS_CA_FILE: /etc/kafka-ui/ca/ca.pem
+
+  # OIDC mode (the client secret is read from the kafka-ui-oidc secret, see deployment.yaml)
+  QUARKUS_OIDC_AUTH_SERVER_URL: https://keycloak.example.com/realms/my-realm
+  QUARKUS_OIDC_CLIENT_ID: kafka-ui
+  # Behind a TLS-terminating ingress (otherwise the CSRF Origin check rejects POSTs)
+  QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
+  QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: "true"
