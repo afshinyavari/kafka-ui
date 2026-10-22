@@ -93,6 +93,27 @@ kubectl apply -k deploy/kubernetes
 docker build -f src/main/docker/Dockerfile.jvm -t kafka-ui .
 ```
 
+### Styles (Tailwind CSS)
+
+`/css/app.css` is generated, not checked in. Its source is `src/main/tailwind/app.css` (Tailwind CSS v4: theme
+colours as `@theme` variables, shared component classes) and Tailwind picks up the classes used in
+`src/main/resources/templates`. The build needs no Node: in `generate-resources` Maven downloads the pinned
+Tailwind standalone CLI (`tailwind.version` in `pom.xml`, checksum-verified, one OS profile each for linux-x64,
+linux-arm64, macos-x64 and macos-arm64) and writes the minified result to
+`target/classes/META-INF/resources/css/app.css`. The binary is cached in
+`~/.m2/repository/.cache/download-maven-plugin`, so builds work offline after the first one.
+
+In dev mode, rebuild the CSS on template changes by running the CLI in watch mode next to `./mvnw quarkus:dev`
+(after one `./mvnw generate-resources` has fetched it):
+
+```
+target/tailwind/tailwindcss-4.3.3 --input src/main/tailwind/app.css \
+  --output target/classes/META-INF/resources/css/app.css --watch
+```
+
+Icons are inline SVGs (Lucide shapes) in `src/main/resources/templates/icons/`, included with
+`{#include icons/<name> /}`; there are no runtime CDNs.
+
 ## Known limitations
 
 - **Avro produce:** schemas containing `fixed` fields cannot be produced (messages with such fields still decode fine).

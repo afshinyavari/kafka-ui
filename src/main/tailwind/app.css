@@ -1,0 +1,236 @@
+/*
+ * Source of /css/app.css. Built by the Tailwind standalone CLI during `generate-resources` (see pom.xml and README).
+ * Classes are picked up from the Qute templates only. Semantic colour tokens below switch for dark mode, so most
+ * markup never needs a `dark:` variant.
+ */
+@import "tailwindcss" source(none);
+@source "../resources/templates";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* brand (Kafbat-like indigo); change these to re-brand */
+  --color-primary: #4f4fff;
+  --color-primary-hover: #3d3df0;
+  --color-accent: #4343e8;          /* links, active text */
+  --color-accent-soft: #eef0ff;     /* active nav / tint backgrounds */
+
+  /* surfaces and text */
+  --color-canvas: #f4f5f8;
+  --color-surface: #ffffff;
+  --color-subtle: #f8f9fb;
+  --color-line: #e6e8ec;
+  --color-line-strong: #d3d7de;
+  --color-ink: #16181d;
+  --color-ink-muted: #545b68;
+  --color-ink-faint: #858c99;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #5c5cff;
+    --color-primary-hover: #6e6eff;
+    --color-accent: #a3a6ff;
+    --color-accent-soft: rgb(92 92 255 / 0.16);
+    --color-canvas: #0f1115;
+    --color-surface: #171a20;
+    --color-subtle: #1d2129;
+    --color-line: #2a2f39;
+    --color-line-strong: #3a404c;
+    --color-ink: #e8eaee;
+    --color-ink-muted: #b0b6c1;
+    --color-ink-faint: #8a919d;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  html { @apply bg-canvas text-ink antialiased; }
+  body { @apply font-sans text-sm; }
+  h1, h2, h3 { @apply text-ink; }
+  code, pre, kbd { @apply font-mono; }
+  [hidden] { display: none !important; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-primary; }
+}
+
+@layer components {
+  .icon { @apply size-[1.125rem] shrink-0; }
+  .logo { @apply size-8 shrink-0 text-primary; }
+
+  /* ---- app shell ---- */
+  .nav-item {
+    @apply relative flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 font-medium text-ink-muted transition-colors;
+    @apply hover:bg-subtle hover:text-ink;
+  }
+  .nav-item .icon { @apply text-ink-faint; }
+  .nav-item[aria-current="page"] { @apply bg-accent-soft text-accent; }
+  .nav-item[aria-current="page"] .icon { @apply text-accent; }
+  @media (width >= 48rem) {
+    .nav-item[aria-current="page"]::before {
+      content: "";
+      @apply absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary;
+    }
+  }
+  .crumbs { @apply flex min-w-0 items-center gap-1.5 text-sm text-ink-faint; }
+  .crumbs a { @apply truncate text-ink-muted hover:text-accent; }
+  .crumbs .icon { @apply size-3.5 text-line-strong; }
+  .crumbs .current { @apply truncate font-medium text-ink; }
+
+  /* ---- page building blocks ---- */
+  .page-head { @apply mb-6 flex flex-wrap items-start justify-between gap-4; }
+  .page-title { @apply text-xl font-semibold tracking-tight text-ink break-all; }
+  .page-sub { @apply mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-faint; }
+  .card { @apply rounded-xl border border-line bg-surface shadow-xs; }
+  .card-head { @apply flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5; }
+  .card-title { @apply text-sm font-semibold text-ink; }
+  .card-body { @apply p-5; }
+  .section-title { @apply mb-3 mt-8 text-base font-semibold text-ink first:mt-0; }
+  .muted { @apply text-ink-faint; }
+  .toolbar { @apply flex flex-wrap items-center gap-3; }
+
+  /* ---- tables ---- */
+  .table-wrap { @apply overflow-x-auto; }
+  .tbl { @apply w-full border-collapse text-left text-sm tabular-nums; }
+  .tbl th {
+    @apply whitespace-nowrap border-b border-line bg-subtle px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint;
+  }
+  .tbl td { @apply border-b border-line px-4 py-2.5 align-middle text-ink; }
+  .tbl tbody tr:last-child td { @apply border-b-0; }
+  .tbl tbody tr:hover td { @apply bg-subtle; }
+  .tbl tbody tr:has(td[colspan]):hover td { @apply bg-transparent; }
+  .tbl td[colspan] { @apply py-12 text-center text-ink-faint; }
+  .tbl td a { @apply font-medium text-accent hover:underline; }
+  .tbl .num { @apply text-right; }
+  .tbl td.mono, .tbl td.preview { @apply font-mono text-xs; }
+  .tbl td.preview { @apply max-w-[28rem] truncate text-ink-muted; }
+  .tbl td.nowrap { @apply whitespace-nowrap; }
+  .tbl td.cell-truncate { @apply max-w-[22rem] truncate; }
+  .tbl td.wrap-any { @apply break-all; }
+  /* key/value list (definition grid) */
+  .dl { @apply grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-6 gap-y-2.5 text-sm; }
+  .dl dt { @apply text-ink-faint; }
+  .dl dd { @apply font-medium text-ink tabular-nums break-all; }
+
+  /* dashboard stats: a table laid out as a grid of tiles (ids on the cells are part of the page contract) */
+  .stats { @apply grid w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3; }
+  .stats tbody { display: contents; }
+  .stats tr { @apply flex flex-col-reverse gap-1 rounded-xl border border-line bg-surface p-5 shadow-xs; }
+  .stats th { @apply text-left text-xs font-medium uppercase tracking-wider text-ink-faint; }
+  .stats td { @apply text-2xl font-semibold tracking-tight text-ink tabular-nums break-all; }
+  .stats tr.wide td { @apply font-mono text-base font-medium leading-8; }
+  .stats tr.warn { @apply border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10; }
+  .stats tr.warn td { @apply text-amber-700 dark:text-amber-300; }
+
+  /* ---- badges ---- */
+  .badge {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-line bg-subtle px-2 py-0.5 text-xs font-medium leading-4 text-ink-muted;
+  }
+  .badge-accent { @apply border-transparent bg-accent-soft text-accent; }
+  /* group state, ACL permission, message format and artifact type, keyed by data attributes on the badge or cell */
+  .badge[data-state="STABLE"], .badge[data-perm="ALLOW"] { @apply tone-green; }
+  .badge[data-state="DEAD"], .badge[data-perm="DENY"] { @apply tone-red; }
+  .badge[data-state$="REBALANCE"], .badge[data-state="ASSIGNING"], .badge[data-state="RECONCILING"] { @apply tone-amber; }
+  .badge[data-format="AVRO"], [data-type="AVRO"] > .badge { @apply tone-violet; }
+  .badge[data-format="JSON_SCHEMA"], [data-type="JSON"] > .badge { @apply tone-blue; }
+  .badge[data-format="JSON"] { @apply tone-teal; }
+  .badge[data-format="XML"], [data-type="XML"] > .badge, [data-type="XSD"] > .badge { @apply tone-orange; }
+  .badge[data-format="HEX"] { @apply tone-red; }
+  [data-type="PROTOBUF"] > .badge, [data-type="OPENAPI"] > .badge, [data-type="ASYNCAPI"] > .badge { @apply tone-green; }
+  .badge-sm { @apply px-1.5 py-px text-[10px] leading-3.5 font-semibold uppercase tracking-wide; }
+
+  /* ---- tabs ---- */
+  .tabs { @apply -mx-5 flex gap-6 overflow-x-auto border-b border-line px-5; }
+  .tabs a {
+    @apply -mb-px whitespace-nowrap border-b-2 border-transparent py-3 text-sm font-medium text-ink-faint transition-colors;
+    @apply hover:border-line-strong hover:text-ink;
+  }
+  .tabs a.active { @apply border-primary text-accent; }
+
+  /* ---- buttons ---- */
+  .btn {
+    @apply inline-flex h-9 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-line-strong bg-surface px-3.5 text-sm font-medium text-ink shadow-xs transition-colors;
+    @apply hover:bg-subtle;
+  }
+  .btn .icon { @apply size-4; }
+  .btn-sm { @apply h-7 px-2.5 text-xs; }
+  .btn-primary { @apply border-primary bg-primary text-white hover:bg-primary-hover hover:border-primary-hover; }
+  .btn-danger { @apply border-red-600 bg-red-600 text-white hover:border-red-700 hover:bg-red-700; }
+  .btn-ghost { @apply border-transparent bg-transparent shadow-none hover:bg-subtle; }
+  .btn:disabled, .btn:disabled:hover {
+    @apply cursor-not-allowed border-line bg-subtle text-ink-faint shadow-none;
+  }
+
+  /* ---- forms ---- */
+  .field { @apply flex min-w-0 flex-col gap-1.5 text-xs font-medium text-ink-muted; }
+  .field-hint { @apply font-normal text-ink-faint; }
+  .input {
+    @apply h-9 w-full min-w-0 rounded-lg border border-line-strong bg-surface px-3 text-sm font-normal text-ink shadow-xs transition;
+    @apply placeholder:text-ink-faint focus:border-primary focus:outline-none focus:ring-3 focus:ring-primary/20;
+    @apply disabled:cursor-not-allowed disabled:bg-subtle disabled:text-ink-faint;
+  }
+  select.input { @apply pr-8; }
+  select.input[multiple] { @apply h-auto py-1.5 pr-3; }
+  textarea.input { @apply h-auto py-2 font-mono text-xs leading-5; }
+  .input-search { @apply relative flex items-center; }
+  .input-search .icon { @apply pointer-events-none absolute left-3 size-4 text-ink-faint; }
+  .input-search .input { @apply pl-9; }
+  .check { @apply inline-flex cursor-pointer select-none items-center gap-2 text-sm font-normal text-ink-muted; }
+  .check input { @apply size-4 rounded accent-primary; }
+  .fieldset { @apply rounded-lg border border-line p-4; }
+  .fieldset legend { @apply px-1 text-xs font-semibold uppercase tracking-wider text-ink-faint; }
+
+  /* ---- alerts and status ---- */
+  .alert { @apply flex items-start gap-3 rounded-lg border px-4 py-3 text-sm; }
+  .alert > .icon { @apply mt-px; }
+  .alert-title { @apply font-semibold; }
+  .alert p + p { @apply mt-1; }
+  .alert-error { @apply border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200; }
+  .alert-warn { @apply border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200; }
+  .alert-success { @apply border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200; }
+  .alert-info { @apply border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200; }
+  .alert a { @apply font-medium underline underline-offset-2; }
+  .alert .tbl { @apply mt-2 w-auto; }
+  .alert .tbl th { @apply bg-transparent px-3 py-1.5; }
+  .alert .tbl td { @apply px-3 py-1.5; }
+  .alert .tbl tbody tr:hover td { @apply bg-transparent; }
+
+  /* search/tail progress line; the page's scripts create bare `search-status` elements too */
+  .search-status {
+    @apply flex min-h-11 flex-wrap items-center gap-3 border-b border-line bg-subtle px-5 py-2 text-xs text-ink-muted tabular-nums;
+  }
+  .search-status .btn { @apply ml-auto h-7 px-2.5 text-xs; }
+  .search-status > span[sse-swap="progress"]::before {
+    content: "";
+    @apply mr-2 inline-block size-2 animate-pulse rounded-full bg-primary align-middle;
+  }
+
+  /* ---- code ---- */
+  .code-panel { @apply overflow-hidden rounded-lg border border-line; }
+  .code-panel pre { @apply max-h-[60vh] overflow-auto text-xs leading-5; }
+  .code-panel pre code.hljs, .code-panel pre code { @apply block bg-subtle p-4; }
+
+  /* ---- modal ---- */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-950/40 px-4 py-10 backdrop-blur-[2px] sm:py-16;
+  }
+  .modal { @apply w-full max-w-2xl rounded-xl border border-line bg-surface shadow-2xl; }
+  .modal-head { @apply flex items-center justify-between gap-4 border-b border-line px-6 py-4; }
+  .modal-title { @apply text-base font-semibold text-ink break-all; }
+  .modal-body { @apply space-y-5 px-6 py-5; }
+  .modal-foot { @apply flex items-center justify-end gap-2 rounded-b-xl border-t border-line bg-subtle px-6 py-3.5; }
+
+  .picker { @apply mt-2 max-h-44 divide-y divide-line overflow-auto rounded-lg border border-line; }
+  .picker li { @apply flex flex-wrap items-baseline justify-between gap-x-3 px-3 py-2 text-sm; }
+  .picker a { @apply font-medium text-accent hover:underline; }
+  .picker .muted { @apply font-mono text-xs; }
+}
+
+/* badge tones (utilities so components can @apply them) */
+@utility tone-green { @apply border-transparent bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300; }
+@utility tone-red { @apply border-transparent bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300; }
+@utility tone-amber { @apply border-transparent bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300; }
+@utility tone-blue { @apply border-transparent bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300; }
+@utility tone-violet { @apply border-transparent bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300; }
+@utility tone-teal { @apply border-transparent bg-teal-50 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300; }
+@utility tone-orange { @apply border-transparent bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300; }
