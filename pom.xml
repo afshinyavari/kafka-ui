@@ -14,12 +14,36 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.40.1.1</quarkus.platform.version>
-        <skipITs>true</skipITs>
+        <skipITs>false</skipITs>
+        <!-- Apicurio Registry serdes for the *IT compatibility tests; keep in step with ApicurioResource.IMAGE -->
+        <apicurio.version>3.3.3</apicurio.version>
         <surefire-plugin.version>3.5.6</surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- The Quarkus BOM pins parts of the Apicurio serde stack to an older 3.x; keep the whole stack on
+                 ${apicurio.version} (test scope only). Declared before the BOM import so these win. -->
+            <dependency>
+                <groupId>io.apicurio</groupId>
+                <artifactId>apicurio-registry-serde-common</artifactId>
+                <version>${apicurio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.apicurio</groupId>
+                <artifactId>apicurio-registry-serde-kafka-common</artifactId>
+                <version>${apicurio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.apicurio</groupId>
+                <artifactId>apicurio-registry-serde-common-jsonschema</artifactId>
+                <version>${apicurio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.apicurio</groupId>
+                <artifactId>apicurio-registry-java-sdk</artifactId>
+                <version>${apicurio.version}</version>
+            </dependency>
             <dependency>
                 <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>${quarkus.platform.artifact-id}</artifactId>
@@ -115,6 +139,30 @@
         <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- quarkus-kafka-client refuses to build when Apicurio Avro serde classes are present without this
+             extension; test scope only, its Dev Services are disabled in src/test/resources/application.properties -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-apicurio-registry-avro</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.apicurio</groupId>
+            <artifactId>apicurio-registry-avro-serde-kafka</artifactId>
+            <version>${apicurio.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.apicurio</groupId>
+            <artifactId>apicurio-registry-jsonschema-serde-kafka</artifactId>
+            <version>${apicurio.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

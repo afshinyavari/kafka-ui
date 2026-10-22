@@ -59,6 +59,10 @@ public interface KafkaUiConfig {
         int maxRows();
     }
 
+    /**
+     * How produced Avro records carry their schema id. The defaults frame records exactly like Apicurio 3's serializer
+     * defaults (magic byte + 4-byte contentId in the payload, no headers); pinned by ApicurioCompatibilityIT.
+     */
     interface Produce {
         @WithDefault("PAYLOAD")
         IdLocation idLocation();
