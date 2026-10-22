@@ -4,35 +4,53 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {|<meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"[45]..","swap":true,"error":true}]}'>|}
+  <meta name="color-scheme" content="light dark">
   <title>{#insert title}Kafka UI{/}</title>
   <link rel="stylesheet" href="/css/app.css">
-  <link rel="stylesheet" href="/vendor/github.min.css">
+  <link rel="stylesheet" href="/vendor/github.min.css" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="/vendor/github-dark.min.css" media="(prefers-color-scheme: dark)">
   <script src="/vendor/htmx.min.js"></script>
   <script src="/vendor/htmx-ext-sse.js"></script>
   <script src="/vendor/highlight.min.js"></script>
 </head>
 <body hx-ext="sse">
-{#if bannerText}
-  <div class="banner">{bannerText}</div>
-{/if}
-<div class="shell">
-  <aside class="sidebar">
-    <div class="brand">Kafka UI</div>
-    <nav>
-      <a href="/">Dashboard</a>
-      <a href="/brokers">Brokers</a>
-      <a href="/topics">Topics</a>
-      <a href="/consumers">Consumers</a>
-      <a href="/schemas">Schema Registry</a>
-      <a href="/acls">ACLs</a>
+<div class="min-h-screen md:flex">
+  <aside class="sidebar z-30 border-b border-line bg-surface md:w-60 md:shrink-0 md:border-b-0 md:border-r">
+    <div class="flex flex-col md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
+    <a href="/" class="flex h-14 shrink-0 items-center gap-2.5 px-5 md:border-b md:border-line">
+      {#include icons/logo /}
+      <span class="text-[15px] font-semibold tracking-tight text-ink">Kafka UI</span>
+    </a>
+    <nav class="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible md:py-4" aria-label="Main">
+      <p class="hidden px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint md:block">Cluster</p>
+      <a href="/"{#if navSection == 'dashboard'} aria-current="page"{/if} class="nav-item">{#include icons/dashboard /}Dashboard</a>
+      <a href="/brokers"{#if navSection == 'brokers'} aria-current="page"{/if} class="nav-item">{#include icons/brokers /}Brokers</a>
+      <a href="/topics"{#if navSection == 'topics'} aria-current="page"{/if} class="nav-item">{#include icons/topics /}Topics</a>
+      <a href="/consumers"{#if navSection == 'consumers'} aria-current="page"{/if} class="nav-item">{#include icons/consumers /}Consumers</a>
+      <a href="/schemas"{#if navSection == 'schemas'} aria-current="page"{/if} class="nav-item">{#include icons/schemas /}Schema Registry</a>
+      <a href="/acls"{#if navSection == 'acls'} aria-current="page"{/if} class="nav-item">{#include icons/acls /}ACLs</a>
     </nav>
-    {#if username}
-    <div class="user">{username}</div>
-    {/if}
+    </div>
   </aside>
-  <main class="content">
-    {#insert content}{/}
-  </main>
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="sticky top-0 z-20 flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface/90 px-4 py-2 backdrop-blur sm:px-6 lg:px-8">
+      <nav class="crumbs" aria-label="Breadcrumb">{#insert crumb}{/}</nav>
+      <div class="flex flex-wrap items-center gap-3">
+        {#if bannerText}
+        <div class="banner inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200 [&_.icon]:size-3.5" role="note">{#include icons/lock /}<span>{bannerText}</span></div>
+        {/if}
+        {#if username}
+        <div class="user inline-flex items-center gap-2 text-sm font-medium text-ink-muted">
+          <span class="grid size-7 place-items-center rounded-full bg-accent-soft text-accent [&_.icon]:size-4">{#include icons/user /}</span>
+          <span>{username}</span>
+        </div>
+        {/if}
+      </div>
+    </header>
+    <main class="content w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      {#insert content}{/}
+    </main>
+  </div>
 </div>
 </body>
 </html>

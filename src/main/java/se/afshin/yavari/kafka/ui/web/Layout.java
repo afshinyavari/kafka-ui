@@ -3,6 +3,7 @@ package se.afshin.yavari.kafka.ui.web;
 import io.quarkus.arc.Arc;
 import io.quarkus.qute.TemplateGlobal;
 import io.quarkus.security.identity.SecurityIdentity;
+import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import se.afshin.yavari.kafka.ui.config.KafkaUiConfig;
 import se.afshin.yavari.kafka.ui.security.Mode;
 
@@ -30,5 +31,26 @@ public final class Layout {
     /** Permanent banner text (mTLS mode), otherwise null. */
     public static String bannerText() {
         return mode() == Mode.MTLS ? MTLS_BANNER : null;
+    }
+
+    /** Sidebar entry for the current request path ("dashboard", "topics", ...), or "" when none matches. */
+    public static String navSection() {
+        if (!Arc.container().requestContext().isActive()) {
+            return "";
+        }
+        var current = Arc.container().instance(CurrentVertxRequest.class).get().getCurrent();
+        return current == null ? "" : section(current.request().path());
+    }
+
+    private static String section(String path) {
+        if (path == null || path.equals("/")) {
+            return "dashboard";
+        }
+        for (String s : new String[] {"brokers", "topics", "consumers", "schemas", "acls"}) {
+            if (path.equals("/" + s) || path.startsWith("/" + s + "/")) {
+                return s;
+            }
+        }
+        return "";
     }
 }

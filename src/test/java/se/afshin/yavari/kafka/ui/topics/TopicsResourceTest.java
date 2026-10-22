@@ -93,6 +93,8 @@ class TopicsResourceTest {
                 .body(containsString("Overview")).body(containsString("Messages"))
                 .body(containsString("Consumers")).body(containsString("Settings"))
                 .body(containsString("hx-get=\"/topics/orders/settings\""))
+                .body(containsString("href=\"/topics\" aria-current=\"page\""))
+                .body(not(containsString("href=\"/consumers\" aria-current")))
                 .body(containsString("<html"));
     }
 
