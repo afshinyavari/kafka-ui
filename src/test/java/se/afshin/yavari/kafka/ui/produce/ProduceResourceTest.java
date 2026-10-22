@@ -92,7 +92,7 @@ class ProduceResourceTest {
     @Test
     void rawProduceShowsPartitionOffsetAndLink() throws Exception {
         ensureTopic();
-        given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "<a>1</a>").formParam("key", "")
+        given().header("HX-Request", "true").formParam("valueMode", "RAW").formParam("value", "<a>1</a>").formParam("key", "")
                 .formParam("headerName", "trace").formParam("headerValue", "x")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(200)
                 .body(containsString("partition 0"))
@@ -103,8 +103,8 @@ class ProduceResourceTest {
     @Test
     void avroProduceFramesWithContentId() throws Exception {
         ensureTopic();
-        given().header("HX-Request", "true").formParam("mode", "AVRO").formParam("value", "{\"id\":\"o-1\",\"amount\":2.5}")
-                .formParam("group", "default").formParam("artifact", "order-value").formParam("version", "3")
+        given().header("HX-Request", "true").formParam("valueMode", "AVRO").formParam("value", "{\"id\":\"o-1\",\"amount\":2.5}")
+                .formParam("valueGroup", "default").formParam("valueArtifact", "order-value").formParam("valueVersion", "3")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(200);
         byte[] v = lastValue();
         assertThat(v[0]).isZero();
@@ -114,8 +114,8 @@ class ProduceResourceTest {
     @Test
     void invalidJsonShowsFieldPath() throws Exception {
         ensureTopic();
-        given().header("HX-Request", "true").formParam("mode", "AVRO").formParam("value", "{\"id\":\"o-1\"}")
-                .formParam("group", "default").formParam("artifact", "order-value").formParam("version", "3")
+        given().header("HX-Request", "true").formParam("valueMode", "AVRO").formParam("value", "{\"id\":\"o-1\"}")
+                .formParam("valueGroup", "default").formParam("valueArtifact", "order-value").formParam("valueVersion", "3")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(400)
                 .body(containsString("amount"))
                 .body(not(containsString("<html")));
@@ -123,7 +123,7 @@ class ProduceResourceTest {
 
     @Test
     void unknownTopicIsNotFoundAndNotCreated() throws Exception {
-        given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "x")
+        given().header("HX-Request", "true").formParam("valueMode", "RAW").formParam("value", "x")
                 .post("/topics/produce-ghost/produce").then().statusCode(404)
                 .body(containsString("Topic produce-ghost does not exist."));
         assertThat(clients.admin(new Credentials.Mtls()).listTopics().names().get()).doesNotContain("produce-ghost");
@@ -132,7 +132,7 @@ class ProduceResourceTest {
     @Test
     void partitionBeyondTheTopicIsAValidationError() throws Exception {
         ensureTopic();
-        given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "x")
+        given().header("HX-Request", "true").formParam("valueMode", "RAW").formParam("value", "x")
                 .formParam("partition", "5")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(400)
                 .body(containsString("Partition 5 does not exist in topic " + TOPIC
@@ -143,7 +143,7 @@ class ProduceResourceTest {
     void negativeOrNonNumericPartitionIsAValidationError() throws Exception {
         ensureTopic();
         for (String bad : new String[] {"-1", "abc"}) {
-            given().header("HX-Request", "true").formParam("mode", "RAW").formParam("value", "x")
+            given().header("HX-Request", "true").formParam("valueMode", "RAW").formParam("value", "x")
                     .formParam("partition", bad)
                     .post("/topics/" + TOPIC + "/produce").then().statusCode(400)
                     .body(containsString("Partition must be a non-negative number"));
@@ -153,7 +153,7 @@ class ProduceResourceTest {
     @Test
     void postWithoutHxRequestIsBlocked() throws Exception {
         ensureTopic();
-        given().formParam("mode", "RAW").formParam("value", "x")
+        given().formParam("valueMode", "RAW").formParam("value", "x")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(403)
                 .body(containsString("Request blocked: cross-site request"));
     }
@@ -162,11 +162,11 @@ class ProduceResourceTest {
     void postWithForeignOriginIsBlocked() throws Exception {
         ensureTopic();
         given().header("HX-Request", "true").header("Origin", "https://evil.example")
-                .formParam("mode", "RAW").formParam("value", "x")
+                .formParam("valueMode", "RAW").formParam("value", "x")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(403)
                 .body(containsString("Request blocked: cross-site request"));
         given().header("HX-Request", "true").header("Referer", "https://evil.example/page")
-                .formParam("mode", "RAW").formParam("value", "x")
+                .formParam("valueMode", "RAW").formParam("value", "x")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(403);
     }
 
@@ -174,7 +174,7 @@ class ProduceResourceTest {
     void postWithMatchingOriginPasses() throws Exception {
         ensureTopic();
         given().header("HX-Request", "true").header("Origin", "http://localhost:" + io.restassured.RestAssured.port)
-                .formParam("mode", "RAW").formParam("value", "x")
+                .formParam("valueMode", "RAW").formParam("value", "x")
                 .post("/topics/" + TOPIC + "/produce").then().statusCode(200);
     }
 
@@ -182,9 +182,14 @@ class ProduceResourceTest {
     void formFragmentLoadsTheSchemaPicker() {
         given().header("HX-Request", "true").get("/topics/" + TOPIC + "/produce").then().statusCode(200)
                 // the form's hx-target is inherited; the loader must replace itself, not the result box
-                .body(containsString("hx-get=\"/topics/" + TOPIC + "/produce/schema\" hx-trigger=\"load\" hx-target=\"this\""))
+                .body(containsString("hx-get=\"/topics/" + TOPIC + "/produce/schema?role=key\" hx-trigger=\"load\" hx-target=\"this\""))
+                .body(containsString("hx-get=\"/topics/" + TOPIC + "/produce/schema?role=value\" hx-trigger=\"load\" hx-target=\"this\""))
                 .body(containsString("hx-post=\"/topics/" + TOPIC + "/produce\""))
-                .body(containsString("name=\"valueTemplate\""));
+                .body(containsString("name=\"keyMode\""))
+                .body(containsString("name=\"keyTemplate\""))
+                .body(containsString("name=\"valueTemplate\""))
+                .body(containsString("<template id=\"produce-header-row\">"))
+                .body(containsString("aria-label=\"Remove header\""));
     }
 
     @Test
@@ -198,33 +203,66 @@ class ProduceResourceTest {
         }
         String html = given().header("HX-Request", "true").get("/topics/order/produce/schema").then().statusCode(200)
                 .body(containsString("default naming (order-value)"))
-                .body(containsString("id=\"produce-mode\""))
+                .body(containsString("id=\"produce-value-mode\""))
                 .body(containsString("hx-swap-oob=\"true\""))
                 .body(containsString("<option value=\"AVRO\" selected>"))
-                .body(containsString("name=\"artifact\" value=\"order-value\""))
+                .body(containsString("name=\"valueArtifact\" value=\"order-value\""))
                 .extract().asString();
         assertThat(html.indexOf("<option value=\"3\">")).isLessThan(html.indexOf("<option value=\"2\">"));
+        // no order-key artifact: the key picker stays a plain search
+        given().header("HX-Request", "true").get("/topics/order/produce/schema?role=key").then().statusCode(200)
+                .body(containsString("hx-get=\"/schemas/search?role=key\""))
+                .body(not(containsString("produce-key-mode")));
     }
 
     @Test
     void schemaPickerWithoutGuessIsThePlainSearch() {
         given().header("HX-Request", "true").get("/topics/" + TOPIC + "-nothing/produce/schema").then().statusCode(200)
-                .body(containsString("hx-get=\"/schemas/search\""))
-                .body(not(containsString("produce-mode")));
+                .body(containsString("hx-get=\"/schemas/search?role=value\""))
+                .body(not(containsString("produce-value-mode")));
+    }
+
+    @Test
+    void keyTemplateFillsTheKeyField() {
+        given().header("HX-Request", "true").formParam("keyVersion", "3").formParam("key", "")
+                .formParam("keyTemplate", "")
+                .post("/schemas/default/order-value/template?role=key").then().statusCode(200)
+                .body(containsString("<div id=\"produce-key\">"))
+                .body(containsString("name=\"keyTemplate\""))
+                .body(containsString("&quot;amount&quot; : 0.0"));
+    }
+
+    @Test
+    void avroKeyIsFramed() throws Exception {
+        ensureTopic();
+        given().header("HX-Request", "true").formParam("keyMode", "AVRO").formParam("key", "{\"id\":\"k\",\"amount\":1}")
+                .formParam("keyGroup", "default").formParam("keyArtifact", "order-value").formParam("keyVersion", "3")
+                .formParam("valueMode", "RAW").formParam("value", "v")
+                .post("/topics/" + TOPIC + "/produce").then().statusCode(200);
+        try (var consumer = clients.newConsumer(new Credentials.Mtls())) {
+            var tp = new TopicPartition(TOPIC, 0);
+            consumer.assign(List.of(tp));
+            long end = consumer.endOffsets(List.of(tp)).get(tp);
+            consumer.seek(tp, end - 1);
+            var r = consumer.poll(Duration.ofSeconds(5)).iterator().next();
+            assertThat(r.key()[0]).isZero();
+            assertThat(java.nio.ByteBuffer.wrap(r.key(), 1, 4).getInt()).isEqualTo(7);
+            assertThat(new String(r.value())).isEqualTo("v");
+        }
     }
 
     @Test
     void templateFillsAnEmptyValueAndKeepsTypedText() {
-        given().header("HX-Request", "true").formParam("version", "3").formParam("value", "")
+        given().header("HX-Request", "true").formParam("valueVersion", "3").formParam("value", "")
                 .formParam("valueTemplate", "")
                 .post("/schemas/default/order-value/template").then().statusCode(200)
                 .body(containsString("&quot;id&quot; : &quot;&quot;"))
                 .body(containsString("&quot;amount&quot; : 0.0"));
-        given().header("HX-Request", "true").formParam("version", "3").formParam("value", "{\"mine\":1}")
+        given().header("HX-Request", "true").formParam("valueVersion", "3").formParam("value", "{\"mine\":1}")
                 .formParam("valueTemplate", "{\"old\":1}")
                 .post("/schemas/default/order-value/template").then().statusCode(200)
                 .body(containsString(">{&quot;mine&quot;:1}</textarea>"));
-        given().header("HX-Request", "true").formParam("version", "3").formParam("value", "{\r\n\"old\":1}")
+        given().header("HX-Request", "true").formParam("valueVersion", "3").formParam("value", "{\r\n\"old\":1}")
                 .formParam("valueTemplate", "{\n\"old\":1}")
                 .post("/schemas/default/order-value/template").then().statusCode(200)
                 .body(containsString("&quot;amount&quot;"));
@@ -232,11 +270,13 @@ class ProduceResourceTest {
 
     @Test
     void pickerListsOnlyAvroArtifactsAndVersionsNewestFirst() {
-        given().get("/schemas/search?q=ord").then().statusCode(200)
-                .body(containsString("/schemas/default/order-value/versions"))
+        given().get("/schemas/search?q=ord&role=key").then().statusCode(200)
+                .body(containsString("/schemas/default/order-value/versions?role=key"))
+                .body(containsString("hx-target=\"#key-version-picker\""))
                 .body(not(containsString("JsonThing")));
         String html = given().get("/schemas/default/order-value/versions").then().statusCode(200)
-                .body(containsString("name=\"artifact\" value=\"order-value\""))
+                .body(containsString("name=\"valueArtifact\" value=\"order-value\""))
+                .body(containsString("hx-target=\"#produce-value\""))
                 .extract().asString();
         assertThat(html.indexOf("<option value=\"3\">")).isLessThan(html.indexOf("<option value=\"2\">"));
     }

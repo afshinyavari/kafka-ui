@@ -89,16 +89,19 @@ public class ProduceService {
 
     public RecordMetadata produce(Credentials credentials, ProduceRequest req) {
         checkTarget(credentials, req);
-        byte[] key = req.key() == null || req.key().isEmpty() ? null : req.key().getBytes(StandardCharsets.UTF_8);
         var headers = new RecordHeaders();
         for (var h : req.headers()) {
             if (h.key() != null && !h.key().isBlank()) {
                 headers.add(h.key().trim(), (h.value() == null ? "" : h.value()).getBytes(StandardCharsets.UTF_8));
             }
         }
-        byte[] value = req.mode() == ProduceMode.AVRO
-                ? avroValue(credentials, req, headers)
-                : (req.value() == null ? "" : req.value()).getBytes(StandardCharsets.UTF_8);
+        String keyText = req.key().text() == null ? "" : req.key().text();
+        byte[] key = req.key().mode() == ProduceMode.AVRO
+                ? avro(credentials, req.key(), headers, true)
+                : (keyText.isEmpty() ? null : keyText.getBytes(StandardCharsets.UTF_8));
+        byte[] value = req.value().mode() == ProduceMode.AVRO
+                ? avro(credentials, req.value(), headers, false)
+                : (req.value().text() == null ? "" : req.value().text()).getBytes(StandardCharsets.UTF_8);
 
         Producer<byte[], byte[]> producer = null;
         try {
@@ -130,8 +133,9 @@ public class ProduceService {
         }
     }
 
-    private byte[] avroValue(Credentials credentials, ProduceRequest req, RecordHeaders headers) {
-        SchemaVersionRef ref = req.valueSchema().orElseThrow(() -> invalid("Pick a schema version for the value."));
+    private byte[] avro(Credentials credentials, ProduceRequest.Part part, RecordHeaders headers, boolean isKey) {
+        String what = isKey ? "key" : "value";
+        SchemaVersionRef ref = part.schema().orElseThrow(() -> invalid("Pick a schema version for the " + what + "."));
         try {
             RegistrySchema schema = registry.version(credentials, ref.groupId(), ref.artifactId(), ref.version());
             if (!"AVRO".equalsIgnoreCase(schema.type())) {
@@ -144,17 +148,17 @@ public class ProduceService {
             Schema avro = AvroCodec.parse(schema,
                     r -> registry.version(credentials, r.groupId(), r.artifactId(), r.version()).content());
             rejectFixed(avro, new java.util.HashSet<>());
-            byte[] body = AvroCodec.fromJson(avro, req.value() == null ? "" : req.value());
+            byte[] body = AvroCodec.fromJson(avro, part.text() == null ? "" : part.text());
             IdKind kind = config.idKind();
             long id = kind == IdKind.GLOBAL_ID ? summary.globalId() : summary.contentId();
             if (config.idLocation() == IdLocation.HEADERS) {
-                WireFormat.writeHeader(headers, false, kind, id, config.keyHeaderPrefix(), config.valueHeaderPrefix());
+                WireFormat.writeHeader(headers, isKey, kind, id, config.keyHeaderPrefix(), config.valueHeaderPrefix());
                 return body;
             }
             return WireFormat.frame(kind, id, body);
         } catch (AvroJsonException e) {
             String where = e.fieldPath() == null || e.fieldPath().isEmpty() ? "" : " (field: " + e.fieldPath() + ")";
-            throw invalid("The value does not match the schema" + where + ": " + e.getMessage());
+            throw invalid("The " + what + " does not match the schema" + where + ": " + e.getMessage());
         } catch (RegistryException e) {
             throw new UserErrorException(registryError(e.failure()));
         }

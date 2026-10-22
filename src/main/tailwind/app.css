@@ -158,9 +158,14 @@
   .badge-sm { @apply px-1.5 py-px text-[10px] leading-3.5 font-semibold uppercase tracking-wide; }
 
   /* ---- tabs ---- */
-  .tabs { @apply flex gap-6 overflow-x-auto border-b border-line px-5; }
+  /* the bottom rule is an inset shadow so the active tab's border covers it without overflowing the bar
+     (a negative margin would make the scrollable bar 1px taller than its box and show a scrollbar) */
+  .tabs {
+    @apply flex gap-6 overflow-x-auto overflow-y-hidden px-5 shadow-[inset_0_-1px_0_var(--color-line)];
+    scrollbar-width: none;
+  }
   .tabs a {
-    @apply -mb-px whitespace-nowrap border-b-2 border-transparent py-3 text-sm font-medium text-ink-faint transition-colors;
+    @apply whitespace-nowrap border-b-2 border-transparent py-3 text-sm font-medium text-ink-faint transition-colors;
     @apply hover:border-line-strong hover:text-ink;
   }
   .tabs a.active { @apply border-primary text-accent; }
@@ -256,6 +261,6 @@
 /* search results: no header row until the first match arrives */
 .results:has(tbody:empty) thead { display: none; }
 
-/* Produce form: the schema picker only applies to Avro */
-#produce-schema { display: none; }
-form:has(#produce-mode option[value="AVRO"]:checked) #produce-schema { display: block; }
+/* Produce form: a key's or value's schema picker only applies to Avro */
+.produce-schema { display: none; }
+.produce-part:has(.produce-mode option[value="AVRO"]:checked) .produce-schema { display: block; }

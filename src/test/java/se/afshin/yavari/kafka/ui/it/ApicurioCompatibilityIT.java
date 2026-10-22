@@ -208,8 +208,8 @@ class ApicurioCompatibilityIT {
 
     private ConsumerRecord<byte[], byte[]> produceAndRead(String topic, SchemaVersionRef ref) throws Exception {
         clients.admin(CREDS).createTopics(List.of(new NewTopic(topic, 1, (short) 1))).all().get();
-        produce.produce(CREDS, new ProduceRequest(
-                topic, Optional.of(0), "k1", ORDER_JSON, List.of(), ProduceMode.AVRO, Optional.of(ref)));
+        produce.produce(CREDS, new ProduceRequest(topic, Optional.of(0), ProduceRequest.Part.raw("k1"),
+                new ProduceRequest.Part(ORDER_JSON, ProduceMode.AVRO, Optional.of(ref)), List.of()));
         try (var consumer = clients.newConsumer(CREDS)) {
             TopicPartition tp = new TopicPartition(topic, 0);
             consumer.assign(List.of(tp));

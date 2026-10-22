@@ -92,6 +92,10 @@ class SchemaDetectorTest {
 
     /** Two partitions; partition p ends at offset end[p], and its last record is {@code values[p]} at time ts[p]. */
     private void topic(long[] end, byte[][] values, long[] ts) {
+        topic(end, new byte[][] {null, null}, values, ts);
+    }
+
+    private void topic(long[] end, byte[][] keys, byte[][] values, long[] ts) {
         Node n = new Node(0, "localhost", 9092);
         consumer.updatePartitions(TOPIC, List.of(
                 new PartitionInfo(TOPIC, 0, n, new Node[] {n}, new Node[] {n}),
@@ -108,7 +112,7 @@ class SchemaDetectorTest {
             for (int p = 0; p < 2; p++) {
                 if (end[p] > 0) {
                     consumer.addRecord(new ConsumerRecord<>(TOPIC, p, end[p] - 1, ts[p],
-                            org.apache.kafka.common.record.TimestampType.CREATE_TIME, 0, values[p].length, null,
+                            org.apache.kafka.common.record.TimestampType.CREATE_TIME, 0, values[p].length, keys[p],
                             values[p], new org.apache.kafka.common.header.internals.RecordHeaders(), Optional.empty()));
                 }
             }
@@ -119,7 +123,7 @@ class SchemaDetectorTest {
     void schemaOfTheNewestMessageAcrossPartitions() throws Exception {
         byte[] text = "{\"plain\":true}".getBytes(StandardCharsets.UTF_8);
         topic(new long[] {5, 9}, new byte[][] {text, avro()}, new long[] {1_000, 2_000});
-        var d = detector().detect(CREDS, TOPIC);
+        var d = detector().detect(CREDS, TOPIC, false);
         assertThat(d).isPresent();
         assertThat(d.get().groupId()).isEqualTo("shop");
         assertThat(d.get().artifactId()).isEqualTo("order-value");
@@ -137,7 +141,7 @@ class SchemaDetectorTest {
         server.stubFor(get(urlEqualTo(art + "/versions/2/content")).willReturn(ok(ProduceServiceTest.ORDER)));
         server.stubFor(get(urlEqualTo(art + "/versions/2")).willReturn(okJson("{\"artifactType\":\"AVRO\"}")));
         server.stubFor(get(urlEqualTo(art + "/versions/2/references")).willReturn(okJson("[]")));
-        var d = detector().detect(CREDS, TOPIC);
+        var d = detector().detect(CREDS, TOPIC, false);
         assertThat(d).isPresent();
         assertThat(d.get().groupId()).isEqualTo("default");
         assertThat(d.get().artifactId()).isEqualTo("customers-value");
@@ -145,9 +149,32 @@ class SchemaDetectorTest {
     }
 
     @Test
+    void keySchemaFromTheNewestMessagesKey() throws Exception {
+        byte[] text = "plain".getBytes(StandardCharsets.UTF_8);
+        topic(new long[] {5, 0}, new byte[][] {avro(), null}, new byte[][] {text, null}, new long[] {1_000, 0});
+        var d = detector().detect(CREDS, TOPIC, true);
+        assertThat(d).isPresent();
+        assertThat(d.get().artifactId()).isEqualTo("order-value");
+    }
+
+    @Test
+    void keyConventionIsTopicDashKey() {
+        topic(new long[] {0, 0}, new byte[][] {null, null}, new long[] {0, 0});
+        String art = BASE + "/groups/default/artifacts/" + TOPIC + "-key";
+        server.stubFor(get(urlPathEqualTo(art + "/versions")).willReturn(okJson(
+                "{\"versions\":[{\"version\":\"1\",\"globalId\":4,\"contentId\":2}],\"count\":1}")));
+        server.stubFor(get(urlEqualTo(art + "/versions/1/content")).willReturn(ok(ProduceServiceTest.ORDER)));
+        server.stubFor(get(urlEqualTo(art + "/versions/1")).willReturn(okJson("{\"artifactType\":\"AVRO\"}")));
+        server.stubFor(get(urlEqualTo(art + "/versions/1/references")).willReturn(okJson("[]")));
+        var d = detector().detect(CREDS, TOPIC, true);
+        assertThat(d).isPresent();
+        assertThat(d.get().artifactId()).isEqualTo("customers-key");
+    }
+
+    @Test
     void emptyTopicWithoutConventionArtifactHasNoGuess() {
         topic(new long[] {0, 0}, new byte[][] {null, null}, new long[] {0, 0});
-        assertThat(detector().detect(CREDS, TOPIC)).isEmpty();
+        assertThat(detector().detect(CREDS, TOPIC, false)).isEmpty();
     }
 
     @Test
@@ -159,6 +186,6 @@ class SchemaDetectorTest {
         server.stubFor(get(urlEqualTo(art + "/versions/1/content")).willReturn(ok("{}")));
         server.stubFor(get(urlEqualTo(art + "/versions/1")).willReturn(okJson("{\"artifactType\":\"JSON\"}")));
         server.stubFor(get(urlEqualTo(art + "/versions/1/references")).willReturn(okJson("[]")));
-        assertThat(detector().detect(CREDS, TOPIC)).isEmpty();
+        assertThat(detector().detect(CREDS, TOPIC, false)).isEmpty();
     }
 }

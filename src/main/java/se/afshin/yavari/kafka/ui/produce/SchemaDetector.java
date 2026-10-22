@@ -26,9 +26,9 @@ import se.afshin.yavari.kafka.ui.serde.Format;
 import se.afshin.yavari.kafka.ui.serde.MessageDecoder;
 
 /**
- * Guesses the value schema of a topic for the produce form: the schema of the newest message, else Apicurio's
- * default naming ({@code default / <topic>-value}). Every failure (no Read permission, empty topic, registry down)
- * just means no guess.
+ * Guesses the key or value schema of a topic for the produce form: the schema of the newest message, else
+ * Apicurio's default naming ({@code default / <topic>-key} or {@code <topic>-value}). Every failure (no Read
+ * permission, empty topic, registry down) just means no guess.
  */
 @ApplicationScoped
 public class SchemaDetector {
@@ -59,21 +59,22 @@ public class SchemaDetector {
         this.registry = registry;
     }
 
-    public Optional<Detection> detect(Credentials credentials, String topic) {
-        return fromLatestRecord(credentials, topic).or(() -> byNamingConvention(credentials, topic));
+    /** The schema of the topic's keys ({@code isKey}) or values. */
+    public Optional<Detection> detect(Credentials credentials, String topic, boolean isKey) {
+        return fromLatestRecord(credentials, topic, isKey).or(() -> byNamingConvention(credentials, topic, isKey));
     }
 
-    Optional<Detection> fromLatestRecord(Credentials credentials, String topic) {
+    Optional<Detection> fromLatestRecord(Credentials credentials, String topic, boolean isKey) {
         try {
             ConsumerRecord<byte[], byte[]> latest = latestRecord(credentials, topic);
             if (latest == null) {
                 return Optional.empty();
             }
-            Decoded value = decoder.decode(credentials, latest.value(), latest.headers(), false);
-            if (value.format() != Format.AVRO || value.ref().isEmpty()) {
+            Decoded part = decoder.decode(credentials, isKey ? latest.key() : latest.value(), latest.headers(), isKey);
+            if (part.format() != Format.AVRO || part.ref().isEmpty()) {
                 return Optional.empty();
             }
-            var ref = value.ref().get();
+            var ref = part.ref().get();
             if (schemas.get(credentials, ref.kind(), ref.id()) instanceof Lookup.Found f
                     && f.schema().artifactId() != null) {
                 return Optional.of(new Detection(f.schema().groupId(), f.schema().artifactId(),
@@ -123,8 +124,8 @@ public class SchemaDetector {
         }
     }
 
-    Optional<Detection> byNamingConvention(Credentials credentials, String topic) {
-        String artifact = topic + "-value";
+    Optional<Detection> byNamingConvention(Credentials credentials, String topic, boolean isKey) {
+        String artifact = topic + (isKey ? "-key" : "-value");
         try {
             var versions = registry.versions(credentials, DEFAULT_GROUP, artifact);
             if (versions.isEmpty()) {

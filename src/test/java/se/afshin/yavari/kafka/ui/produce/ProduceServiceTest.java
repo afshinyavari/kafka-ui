@@ -98,12 +98,18 @@ class ProduceServiceTest {
     }
 
     private static ProduceRequest raw(String value) {
-        return new ProduceRequest("orders", Optional.of(0), "", value, List.of(), ProduceMode.RAW, Optional.empty());
+        return new ProduceRequest("orders", Optional.of(0), ProduceRequest.Part.raw(""), ProduceRequest.Part.raw(value), List.of());
     }
 
     private static ProduceRequest avro(String json, SchemaVersionRef ref) {
-        return new ProduceRequest("orders", Optional.of(0), "k1", json, List.of(new HeaderView("trace", "abc")),
-                ProduceMode.AVRO, Optional.of(ref));
+        return new ProduceRequest("orders", Optional.of(0), ProduceRequest.Part.raw("k1"),
+                new ProduceRequest.Part(json, ProduceMode.AVRO, Optional.of(ref)), List.of(new HeaderView("trace", "abc")));
+    }
+
+    private static ProduceRequest avroKey(String keyJson, String value) {
+        return new ProduceRequest("orders", Optional.of(0),
+                new ProduceRequest.Part(keyJson, ProduceMode.AVRO, Optional.of(ORDER_REF)), ProduceRequest.Part.raw(value),
+                List.of());
     }
 
     @Test
@@ -141,6 +147,31 @@ class ProduceServiceTest {
         assertThat(h).isNotNull();
         assertThat(ByteBuffer.wrap(h.value()).getLong()).isEqualTo(7);
         assertThat(r.value()).hasSize(12); // 1 length byte + "o-1" + 8-byte double, no id prefix
+    }
+
+    @Test
+    void avroKeyIsFramedLikeAValue() {
+        service(IdLocation.PAYLOAD, IdKind.CONTENT_ID).produce(CREDS, avroKey("{\"id\":\"o-1\",\"amount\":1.0}", "plain"));
+        ProducerRecord<byte[], byte[]> r = producer.history().get(0);
+        assertThat(r.key()[0]).isZero();
+        assertThat(ByteBuffer.wrap(r.key(), 1, 4).getInt()).isEqualTo(7);
+        assertThat(new String(r.value(), StandardCharsets.UTF_8)).isEqualTo("plain");
+    }
+
+    @Test
+    void avroKeyWithHeadersUsesTheKeyPrefix() {
+        service(IdLocation.HEADERS, IdKind.CONTENT_ID).produce(CREDS, avroKey("{\"id\":\"o-1\",\"amount\":1.0}", "plain"));
+        ProducerRecord<byte[], byte[]> r = producer.history().get(0);
+        assertThat(ByteBuffer.wrap(r.headers().lastHeader("apicurio.key.contentId").value()).getLong()).isEqualTo(7);
+        assertThat(r.headers().lastHeader("apicurio.value.contentId")).isNull();
+    }
+
+    @Test
+    void invalidAvroKeySaysKey() {
+        assertThatThrownBy(() -> service(IdLocation.PAYLOAD, IdKind.CONTENT_ID).produce(CREDS, avroKey("{\"id\":\"o-1\"}", "x")))
+                .isInstanceOf(UserErrorException.class)
+                .satisfies(e -> assertThat(((UserErrorException) e).error().message())
+                        .startsWith("The key does not match the schema").contains("amount"));
     }
 
     @Test
@@ -218,13 +249,13 @@ class ProduceServiceTest {
     @Test
     void partitionBeyondTheTopicIsAValidationError() {
         partitions = 3;
-        var req = new ProduceRequest("orders", Optional.of(3), "", "x", List.of(), ProduceMode.RAW, Optional.empty());
+        var req = new ProduceRequest("orders", Optional.of(3), ProduceRequest.Part.raw(""), ProduceRequest.Part.raw("x"), List.of());
         assertThatThrownBy(() -> service(IdLocation.PAYLOAD, IdKind.CONTENT_ID).produce(CREDS, req))
                 .isInstanceOf(UserErrorException.class)
                 .hasMessage("Partition 3 does not exist in topic orders (it has 3 partitions, numbered from 0).")
                 .satisfies(e -> assertThat(((UserErrorException) e).error().httpStatus()).isEqualTo(400));
         assertThat(producer.history()).isEmpty();
-        var ok = new ProduceRequest("orders", Optional.of(2), "", "x", List.of(), ProduceMode.RAW, Optional.empty());
+        var ok = new ProduceRequest("orders", Optional.of(2), ProduceRequest.Part.raw(""), ProduceRequest.Part.raw("x"), List.of());
         service(IdLocation.PAYLOAD, IdKind.CONTENT_ID).produce(CREDS, ok);
         assertThat(producer.history()).hasSize(1);
     }

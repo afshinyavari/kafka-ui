@@ -1,0 +1,12 @@
+<div id="produce-{role}">
+  {#if role == 'key'}
+  <label class="field"><span>Key<span class="field-hint">optional</span></span>
+    <textarea name="key" rows="2" spellcheck="false" class="input font-mono" placeholder="Leave empty for no key. For Avro, pick a schema and fill in the generated JSON.">{text}</textarea>
+  </label>
+  {#else}
+  <label class="field">Value
+    <textarea name="value" rows="12" spellcheck="false" class="input font-mono" placeholder="Paste the message here. For Avro, pick a schema and fill in the generated JSON.">{text}</textarea>
+  </label>
+  {/if}
+  <input type="hidden" name="{role}Template" value="{skeleton}">
+</div>

@@ -1,0 +1,12 @@
+<fieldset class="fieldset produce-part space-y-3">
+  <legend>{label}</legend>
+  <label class="field">Format
+    {#include ProduceResource/modeSelect role=role avro=false oob=false /}
+  </label>
+  <div class="produce-schema space-y-3">
+    <div hx-get="/topics/{name}/produce/schema?role={role}" hx-trigger="load" hx-target="this" hx-swap="outerHTML">
+      <p class="muted text-sm">Looking for the {role} schema of {name}...</p>
+    </div>
+  </div>
+  {#include SchemasResource/field role=role text='' skeleton='' /}
+</fieldset>

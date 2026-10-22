@@ -3,7 +3,7 @@
 {#else}
 <ul class="picker">
   {#for a in artifacts}
-  <li><a href="#" hx-get="/schemas/{a.groupId.urlEnc}/{a.artifactId.urlEnc}/versions" hx-target="#version-picker">{a.name ?: a.artifactId}</a>
+  <li><a href="#" hx-get="/schemas/{a.groupId.urlEnc}/{a.artifactId.urlEnc}/versions?role={role}" hx-target="#{role}-version-picker">{a.name ?: a.artifactId}</a>
     <span class="muted">{a.groupId} / {a.artifactId}</span></li>
   {/for}
 </ul>

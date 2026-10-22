@@ -1,8 +1,8 @@
-<input type="hidden" name="group" value="{group}">
-<input type="hidden" name="artifact" value="{artifact}">
+<input type="hidden" name="{role}Group" value="{group}">
+<input type="hidden" name="{role}Artifact" value="{artifact}">
 <label class="field">Version of {artifact}
-  <select name="version" class="input" hx-post="/schemas/{group.urlEnc}/{artifact.urlEnc}/template" hx-trigger="load, change"
-          hx-include="closest form" hx-target="#produce-value" hx-swap="outerHTML">
+  <select name="{role}Version" class="input" hx-post="/schemas/{group.urlEnc}/{artifact.urlEnc}/template?role={role}" hx-trigger="load, change"
+          hx-include="closest form" hx-target="#produce-{role}" hx-swap="outerHTML">
     {#for v in versions}
     <option value="{v.version}">{v.version}</option>
     {/for}

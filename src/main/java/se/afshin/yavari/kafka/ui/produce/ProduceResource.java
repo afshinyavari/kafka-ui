@@ -10,6 +10,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -34,7 +35,7 @@ public class ProduceResource {
 
         static native TemplateInstance result(String name, RecordMetadata meta);
 
-        static native TemplateInstance schema(SchemaDetector.Detection detection, List<VersionSummary> versions);
+        static native TemplateInstance schema(String role, SchemaDetector.Detection detection, List<VersionSummary> versions);
     }
 
     @Inject ProduceService produce;
@@ -47,40 +48,49 @@ public class ProduceResource {
         return Templates.form(name);
     }
 
-    /** The form's schema picker, preselecting the topic's schema (latest version) when one can be found. */
+    /** "key" or "value" (the default): which part of the record a schema picker or template is for. */
+    public static String role(String role) {
+        return "key".equals(role) ? "key" : "value";
+    }
+
+    /** A schema picker of the form, preselecting the topic's key or value schema (latest version) when found. */
     @GET
     @Path("schema")
-    public TemplateInstance schema(@PathParam("name") String name) {
+    public TemplateInstance schema(@PathParam("name") String name, @QueryParam("role") String role) {
+        String r = role(role);
         var creds = credentials.current();
-        var detection = detector.detect(creds, name);
+        var detection = detector.detect(creds, name, "key".equals(r));
         if (detection.isPresent()) {
             try {
                 var versions = registry.versions(creds, detection.get().groupId(), detection.get().artifactId())
                         .stream().sorted(Comparator.comparingLong(VersionSummary::globalId).reversed()).toList();
                 if (!versions.isEmpty()) {
-                    return Templates.schema(detection.get(), versions);
+                    return Templates.schema(r, detection.get(), versions);
                 }
             } catch (RegistryException e) {
                 // fall through to the plain picker
             }
         }
-        return Templates.schema(null, List.of());
+        return Templates.schema(r, null, List.of());
     }
 
     @POST
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public TemplateInstance send(
             @PathParam("name") String name,
-            @FormParam("mode") String mode,
             @FormParam("partition") String partition,
             @FormParam("key") String key,
+            @FormParam("keyMode") String keyMode,
+            @FormParam("keyGroup") String keyGroup,
+            @FormParam("keyArtifact") String keyArtifact,
+            @FormParam("keyVersion") String keyVersion,
             @FormParam("value") String value,
+            @FormParam("valueMode") String valueMode,
+            @FormParam("valueGroup") String valueGroup,
+            @FormParam("valueArtifact") String valueArtifact,
+            @FormParam("valueVersion") String valueVersion,
             @FormParam("headerName") List<String> headerNames,
-            @FormParam("headerValue") List<String> headerValues,
-            @FormParam("group") String group,
-            @FormParam("artifact") String artifact,
-            @FormParam("version") String version) {
-        ProduceMode produceMode = "AVRO".equals(mode) ? ProduceMode.AVRO : ProduceMode.RAW;
+            @FormParam("headerValue") List<String> headerValues) {
         Optional<Integer> part = Optional.empty();
         if (partition != null && !partition.isBlank()) {
             try {
@@ -98,12 +108,17 @@ public class ProduceResource {
             String v = headerValues != null && i < headerValues.size() ? headerValues.get(i) : "";
             headers.add(new HeaderView(headerNames.get(i), v));
         }
+        var meta = produce.produce(credentials.current(), new ProduceRequest(name, part,
+                part(key, keyMode, keyGroup, keyArtifact, keyVersion),
+                part(value, valueMode, valueGroup, valueArtifact, valueVersion), headers));
+        return Templates.result(name, meta);
+    }
+
+    private static ProduceRequest.Part part(String text, String mode, String group, String artifact, String version) {
         Optional<SchemaVersionRef> schema = group == null || artifact == null || version == null
                 || artifact.isBlank() || version.isBlank()
                 ? Optional.empty()
                 : Optional.of(new SchemaVersionRef(group, artifact, version));
-        var meta = produce.produce(credentials.current(),
-                new ProduceRequest(name, part, key, value, headers, produceMode, schema));
-        return Templates.result(name, meta);
+        return new ProduceRequest.Part(text, "AVRO".equals(mode) ? ProduceMode.AVRO : ProduceMode.RAW, schema);
     }
 }

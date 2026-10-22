@@ -4,7 +4,6 @@ import io.quarkus.qute.CheckedTemplate;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -14,6 +13,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.MultivaluedMap;
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import se.afshin.yavari.kafka.ui.registry.Page;
@@ -26,6 +26,7 @@ import se.afshin.yavari.kafka.ui.registry.Lookup;
 import se.afshin.yavari.kafka.ui.registry.RegistryClient;
 import se.afshin.yavari.kafka.ui.registry.RegistryException;
 import se.afshin.yavari.kafka.ui.registry.VersionSummary;
+import se.afshin.yavari.kafka.ui.produce.ProduceResource;
 import se.afshin.yavari.kafka.ui.security.CredentialsProvider;
 import se.afshin.yavari.kafka.ui.serde.AvroCodec;
 import se.afshin.yavari.kafka.ui.serde.AvroTemplate;
@@ -48,11 +49,11 @@ public class SchemasResource {
         static native TemplateInstance detail(String group, String artifact, List<VersionSummary> versions,
                 RegistrySchema schema, String content, String codeClass);
 
-        static native TemplateInstance pickerArtifacts(List<ArtifactSummary> artifacts);
+        static native TemplateInstance pickerArtifacts(String role, List<ArtifactSummary> artifacts);
 
-        static native TemplateInstance pickerVersions(String group, String artifact, List<VersionSummary> versions);
+        static native TemplateInstance pickerVersions(String role, String group, String artifact, List<VersionSummary> versions);
 
-        static native TemplateInstance valueField(String value, String skeleton);
+        static native TemplateInstance field(String role, String text, String skeleton);
     }
 
     @Inject RegistryClient registry;
@@ -120,11 +121,11 @@ public class SchemasResource {
 
     @GET
     @Path("search")
-    public TemplateInstance search(@QueryParam("q") String q) {
+    public TemplateInstance search(@QueryParam("q") String q, @QueryParam("role") String role) {
         try {
             var page = registry.searchArtifacts(credentials.current(), q, 0, PICKER_LIMIT);
             var avro = page.items().stream().filter(a -> "AVRO".equalsIgnoreCase(a.artifactType())).toList();
-            return Templates.pickerArtifacts(avro);
+            return Templates.pickerArtifacts(ProduceResource.role(role), avro);
         } catch (RegistryException e) {
             throw new UserErrorException(error(e.failure()));
         }
@@ -132,18 +133,20 @@ public class SchemasResource {
 
     @GET
     @Path("{group}/{artifact}/versions")
-    public TemplateInstance versions(@PathParam("group") String group, @PathParam("artifact") String artifact) {
+    public TemplateInstance versions(@PathParam("group") String group, @PathParam("artifact") String artifact,
+            @QueryParam("role") String role) {
         try {
             var versions = registry.versions(credentials.current(), group, artifact);
-            return Templates.pickerVersions(group, artifact, versions.reversed());
+            return Templates.pickerVersions(ProduceResource.role(role), group, artifact, versions.reversed());
         } catch (RegistryException e) {
             throw new UserErrorException(error(e.failure()));
         }
     }
 
     /**
-     * The produce form's value field, filled with a JSON skeleton of the chosen schema version. Text the user typed
-     * or pasted is kept: the field is only replaced while it is empty or still holds the previous skeleton.
+     * The produce form's key or value field, filled with a JSON skeleton of the chosen schema version. Text the user
+     * typed or pasted is kept: the field is only replaced while it is empty or still holds the previous skeleton.
+     * Reads the form's {@code <role>Version}, {@code <role>} and {@code <role>Template} fields.
      */
     @POST
     @Path("{group}/{artifact}/template")
@@ -151,25 +154,26 @@ public class SchemasResource {
     public TemplateInstance template(
             @PathParam("group") String group,
             @PathParam("artifact") String artifact,
-            @FormParam("version") String version,
-            @FormParam("value") String value,
-            @FormParam("valueTemplate") String previous) {
-        String current = value == null ? "" : value;
+            @QueryParam("role") String role,
+            MultivaluedMap<String, String> form) {
+        String r = ProduceResource.role(role);
+        String current = form.getFirst(r) == null ? "" : form.getFirst(r);
+        String previous = form.getFirst(r + "Template") == null ? "" : form.getFirst(r + "Template");
         String template;
         try {
             var creds = credentials.current();
-            var schema = registry.version(creds, group, artifact, version);
+            var schema = registry.version(creds, group, artifact, form.getFirst(r + "Version"));
             if (!"AVRO".equalsIgnoreCase(schema.type())) {
-                return Templates.valueField(current, previous == null ? "" : previous);
+                return Templates.field(r, current, previous);
             }
             template = AvroTemplate.of(AvroCodec.parse(schema,
-                    r -> registry.version(creds, r.groupId(), r.artifactId(), r.version()).content()));
+                    ref -> registry.version(creds, ref.groupId(), ref.artifactId(), ref.version()).content()));
         } catch (RuntimeException e) {
             // registry failure or unparseable schema: no skeleton, leave the field as it is
-            return Templates.valueField(current, previous == null ? "" : previous);
+            return Templates.field(r, current, previous);
         }
         boolean untouched = current.isBlank() || normalize(current).equals(normalize(previous));
-        return Templates.valueField(untouched ? template : current, template);
+        return Templates.field(r, untouched ? template : current, template);
     }
 
     private static String normalize(String s) {
