@@ -51,8 +51,12 @@ certManager:
   # -- Name of the secret cert-manager writes. Defaults to <fullname>-client.
   secretName: ""
   issuerRef:
+    # -- REQUIRED when enabled. Name of the issuer.
     name: ""
+    # -- Issuer, ClusterIssuer, or the kind of an external issuer.
     kind: Issuer
+    # -- API group of the issuer: cert-manager.io for cert-manager's own issuers, or the group of an external
+    # issuer (e.g. awspca.cert-manager.io). Empty leaves it out, and cert-manager then assumes cert-manager.io.
     group: cert-manager.io
   commonName: kafka-ui
   # -- Optional SANs.
