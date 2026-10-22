@@ -56,6 +56,14 @@ class KafkaClientPropertiesTest {
     }
 
     @Test
+    void adminHasBoundedTimeouts() {
+        Properties p = KafkaClientProperties.forAdmin(cfg(Mode.MTLS), new Credentials.Mtls(), tls);
+        assertThat(p).containsEntry("default.api.timeout.ms", "15000").containsEntry("request.timeout.ms", "10000");
+        assertThat(KafkaClientProperties.forConsumer(cfg(Mode.MTLS), new Credentials.Mtls(), tls))
+                .doesNotContainKey("default.api.timeout.ms");
+    }
+
+    @Test
     void oidcUsesSaslSslOauthBearerWithUserToken() {
         Properties p = KafkaClientProperties.forAdmin(cfg(Mode.OIDC), new Credentials.Bearer("tok.en.x", "alice", exp), tls);
         assertThat(p).containsEntry("security.protocol", "SASL_SSL").containsEntry("sasl.mechanism", "OAUTHBEARER")

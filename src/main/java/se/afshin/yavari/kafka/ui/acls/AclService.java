@@ -12,6 +12,7 @@ import org.apache.kafka.common.acl.AclBinding;
 import org.apache.kafka.common.acl.AclBindingFilter;
 import org.apache.kafka.common.errors.SecurityDisabledException;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
+import se.afshin.yavari.kafka.ui.kafka.KafkaClientProperties;
 import se.afshin.yavari.kafka.ui.kafka.KafkaErrors;
 import se.afshin.yavari.kafka.ui.kafka.UserError;
 import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
@@ -43,7 +44,7 @@ public class AclService {
     /** Seam for tests. */
     Collection<AclBinding> fetch(Credentials credentials) throws Exception {
         Admin admin = clients.admin(credentials);
-        return admin.describeAcls(AclBindingFilter.ANY).values().get();
+        return admin.describeAcls(AclBindingFilter.ANY).values().get(KafkaClientProperties.BLOCK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     static List<AclRow> filter(Collection<AclBinding> bindings, AclFilter f) {

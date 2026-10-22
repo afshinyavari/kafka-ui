@@ -11,13 +11,24 @@ import org.junit.jupiter.api.Test;
 @TestProfile(MtlsProfile.class)
 class LayoutMtlsTest {
     @Test
-    void dashboardIsReachableWithoutLoginAndShowsBanner() {
+    void layoutShowsBannerAndNavigation() {
         given().redirects().follow(false).get("/test-errors/user").then().statusCode(403)
                 .body(containsString("mTLS mode – no login"))
                 .body(containsString("href=\"/topics\""))
                 .body(containsString("href=\"/consumers\""))
                 .body(containsString("href=\"/schemas\""))
                 .body(containsString("href=\"/acls\""));
+    }
+
+    @Test
+    void dashboardIsReachableWithoutLoginAndFailsFastWhenKafkaIsDown() {
+        // No broker listens in this profile: no login redirect, a friendly 504 page within the admin timeout.
+        long start = System.nanoTime();
+        given().redirects().follow(false).get("/").then().statusCode(504)
+                .body(containsString("Kafka did not respond in time."))
+                .body(containsString("mTLS mode – no login"));
+        org.assertj.core.api.Assertions.assertThat(java.time.Duration.ofNanos(System.nanoTime() - start))
+                .isLessThan(java.time.Duration.ofSeconds(25));
     }
 
     @Test

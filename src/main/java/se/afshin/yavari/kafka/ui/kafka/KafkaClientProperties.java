@@ -19,10 +19,19 @@ public final class KafkaClientProperties {
     static final String LOGIN_MODULE = "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule";
     static final String CALLBACK_HANDLER = "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler";
 
+    /** Admin calls fail after this long instead of hanging when Kafka is unreachable. */
+    static final int ADMIN_API_TIMEOUT_MS = 15_000;
+    static final int ADMIN_REQUEST_TIMEOUT_MS = 10_000;
+    /** Upper bound for blocking on an admin future; slightly above the admin API timeout. */
+    public static final long BLOCK_TIMEOUT_MS = 20_000;
+
     private KafkaClientProperties() {}
 
     public static Properties forAdmin(KafkaUiConfig cfg, Credentials credentials, TlsMaterial tls) {
-        return base(cfg, credentials, tls);
+        Properties p = base(cfg, credentials, tls);
+        p.put(CommonClientConfigs.DEFAULT_API_TIMEOUT_MS_CONFIG, String.valueOf(ADMIN_API_TIMEOUT_MS));
+        p.put(CommonClientConfigs.REQUEST_TIMEOUT_MS_CONFIG, String.valueOf(ADMIN_REQUEST_TIMEOUT_MS));
+        return p;
     }
 
     public static Properties forConsumer(KafkaUiConfig cfg, Credentials credentials, TlsMaterial tls) {

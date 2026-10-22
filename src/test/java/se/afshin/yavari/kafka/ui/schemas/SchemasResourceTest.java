@@ -67,6 +67,17 @@ class SchemasResourceTest {
                 .body(containsString("version 3"));
     }
 
+    @Test void linksAreUrlEncodedAndVersionsSortedNewestFirst() {
+        registry.stubFor(get(urlPathEqualTo(BASE + "/search/artifacts")).withQueryParam("name", equalTo("odd"))
+                .willReturn(okJson("{\"artifacts\":[{\"groupId\":\"my group\",\"artifactId\":\"a/b\","
+                        + "\"name\":\"Odd\",\"artifactType\":\"AVRO\"}],\"count\":1}")));
+        given().queryParam("q", "odd").get("/schemas").then().statusCode(200)
+                .body(containsString("href=\"/schemas/my%20group/a%2Fb\""));
+        String body = given().get("/schemas/default/order-value").then().extract().asString();
+        org.assertj.core.api.Assertions.assertThat(body.indexOf("version=2")).isPositive();
+        org.assertj.core.api.Assertions.assertThat(body).contains("<strong>3</strong>");
+    }
+
     @Test void pickerStillAvroOnly() {
         given().get("/schemas/search").then().statusCode(200)
                 .body(containsString("Order"))

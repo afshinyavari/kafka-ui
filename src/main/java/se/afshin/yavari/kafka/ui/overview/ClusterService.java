@@ -12,6 +12,7 @@ import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.Node;
 import se.afshin.yavari.kafka.ui.kafka.KafkaClients;
+import se.afshin.yavari.kafka.ui.kafka.KafkaClientProperties;
 import se.afshin.yavari.kafka.ui.kafka.KafkaErrors;
 import se.afshin.yavari.kafka.ui.kafka.UserErrorException;
 import se.afshin.yavari.kafka.ui.security.Credentials;
@@ -26,9 +27,9 @@ public class ClusterService {
         try {
             Admin admin = clients.admin(credentials);
             var cluster = admin.describeCluster();
-            String id = cluster.clusterId().get();
-            Node controller = cluster.controller().get();
-            int brokers = cluster.nodes().get().size();
+            String id = cluster.clusterId().get(KafkaClientProperties.BLOCK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+            Node controller = cluster.controller().get(KafkaClientProperties.BLOCK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+            int brokers = cluster.nodes().get(KafkaClientProperties.BLOCK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS).size();
             int topics = 0;
             int partitions = 0;
             int urp = 0;
@@ -49,7 +50,7 @@ public class ClusterService {
     public List<BrokerRow> brokers(Credentials credentials) {
         try {
             Admin admin = clients.admin(credentials);
-            Collection<Node> nodes = admin.describeCluster().nodes().get();
+            Collection<Node> nodes = admin.describeCluster().nodes().get(KafkaClientProperties.BLOCK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
             Map<Integer, Integer> leaders = new HashMap<>();
             for (TopicDescription d : describeAll(admin).values()) {
                 d.partitions().forEach(p -> {
@@ -68,11 +69,11 @@ public class ClusterService {
     }
 
     private static Map<String, TopicDescription> describeAll(Admin admin) throws Exception {
-        var names = admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get();
+        var names = admin.listTopics(new ListTopicsOptions().listInternal(true)).names().get(KafkaClientProperties.BLOCK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
         if (names.isEmpty()) {
             return Map.of();
         }
-        return admin.describeTopics(names).allTopicNames().get();
+        return admin.describeTopics(names).allTopicNames().get(KafkaClientProperties.BLOCK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     private static RuntimeException wrap(Exception e, String what) {

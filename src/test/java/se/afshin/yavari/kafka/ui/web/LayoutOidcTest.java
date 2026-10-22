@@ -20,7 +20,7 @@ class LayoutOidcTest {
 
     @Test
     @TestSecurity(user = "alice")
-    void loggedInUserSeesNameAndNoBanner() {
+    void loggedInUserSeesNameAndNoBannerOnErrorPageLayout() {
         // "/" needs Kafka; an error page renders the same layout
         given().get("/test-errors/user").then().statusCode(403)
                 .body(containsString("alice"))

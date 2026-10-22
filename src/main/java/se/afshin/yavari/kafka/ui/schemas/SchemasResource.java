@@ -74,7 +74,8 @@ public class SchemasResource {
             @QueryParam("version") String version) {
         try {
             var creds = credentials.current();
-            var versions = registry.versions(creds, group, artifact).reversed();
+            var versions = registry.versions(creds, group, artifact).stream()
+                    .sorted(java.util.Comparator.comparingLong(VersionSummary::globalId).reversed()).toList();
             if (versions.isEmpty()) {
                 throw new UserErrorException(pageError(new Lookup.NotFound()));
             }

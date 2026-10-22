@@ -13,7 +13,7 @@
   <tbody>
   {#for a in page.items}
     <tr>
-      <td><a href="/schemas/{a.groupId}/{a.artifactId}">{a.name ?: a.artifactId}</a></td>
+      <td><a href="/schemas/{a.groupId.urlEnc}/{a.artifactId.urlEnc}">{a.name ?: a.artifactId}</a></td>
       <td>{a.groupId}</td>
       <td>{a.artifactId}</td>
       <td><span class="badge">{a.artifactType}</span></td>

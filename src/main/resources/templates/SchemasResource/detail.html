@@ -5,7 +5,7 @@
 <p class="muted">Group {group} · version {schema.version}</p>
 <p>Versions:
   {#for v in versions}
-    {#if v.version == schema.version}<strong>{v.version}</strong>{#else}<a href="/schemas/{group}/{artifact}?version={v.version}">{v.version}</a>{/if}
+    {#if v.version == schema.version}<strong>{v.version}</strong>{#else}<a href="/schemas/{group.urlEnc}/{artifact.urlEnc}?version={v.version.urlEnc}">{v.version}</a>{/if}
   {/for}
 </p>
 <pre><code class="{codeClass}">{content}</code></pre>
@@ -16,7 +16,7 @@
   <tbody>
   {#for r in schema.references}
     <tr><td>{r.name}</td><td>{r.groupId}</td>
-      <td><a href="/schemas/{r.groupId}/{r.artifactId}?version={r.version}">{r.artifactId}</a></td><td>{r.version}</td></tr>
+      <td><a href="/schemas/{r.groupId.urlEnc}/{r.artifactId.urlEnc}?version={r.version.urlEnc}">{r.artifactId}</a></td><td>{r.version}</td></tr>
   {/for}
   </tbody>
 </table>
