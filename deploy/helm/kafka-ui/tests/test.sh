@@ -65,7 +65,7 @@ render oidc "$CI/oidc.yaml" && {
   eq "no certificate in oidc" oidc Certificate '.kind' ""
   eq "no PDB by default" oidc PodDisruptionBudget '.kind' ""
   eq "no NetworkPolicy by default" oidc NetworkPolicy '.kind' ""
-  eq "image default tag is appVersion" oidc Deployment '.spec.template.spec.containers[0].image' "image-registry.openshift-image-registry.svc:5000/kafka-ui/kafka-ui:0.2.1"
+  eq "image default tag is appVersion" oidc Deployment '.spec.template.spec.containers[0].image' "image-registry.openshift-image-registry.svc:5000/kafka-ui/kafka-ui:0.3.0"
   eq "service port named http" oidc Service '.spec.ports[0].name + "/" + (.spec.ports[0].port|tostring)' "http/8080"
   eq "checksum/config annotation set" oidc Deployment '.spec.template.metadata.annotations["checksum/config"] | length' "64"
   eq "liveness probe" oidc Deployment '.spec.template.spec.containers[0].livenessProbe.httpGet.path' "/q/health/live"
@@ -191,7 +191,7 @@ helm install kafka-ui "$CHART" -f "$CI/oidc.yaml" --set oidc.clientSecret.existi
 
 echo "== default image"
 yq 'del(.image)' "$CI/oidc.yaml" >"$OUT/noimage-values.yaml"
-render defimg "$OUT/noimage-values.yaml" && eq "default image is Docker Hub :appVersion" defimg Deployment '.spec.template.spec.containers[0].image' "docker.io/alfeenz/kafka-ui:0.2.1"
+render defimg "$OUT/noimage-values.yaml" && eq "default image is Docker Hub :appVersion" defimg Deployment '.spec.template.spec.containers[0].image' "docker.io/alfeenz/kafka-ui:0.3.0"
 
 echo "== issuerRef group"
 render extiss "$CI/mtls-certmanager.yaml" --set certManager.issuerRef.kind=AWSPCAClusterIssuer --set certManager.issuerRef.group=awspca.cert-manager.io && \

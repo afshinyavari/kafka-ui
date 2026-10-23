@@ -26,7 +26,7 @@ ingress). The chart creates no secrets: CA bundle, OIDC secrets and (mtls) clien
 |---|---|---|
 | `mode` | `oidc` | `oidc` or `mtls` (mtls = test environments only, no login) |
 | `image.repository` | `docker.io/alfeenz/kafka-ui` | built by `.github/workflows/image.yml` |
-| `image.tag` | chart `appVersion` (`0.2.1`) | or `main` (moves with every push) / `sha-<short>` |
+| `image.tag` | chart `appVersion` (`0.3.0`) | or `main` (moves with every push) / `sha-<short>` |
 | `replicaCount` | `1` | `> 1` requires `oidc.stateSecret.existingSecret` |
 | `kafka.bootstrapServers` | **required** | `KAFKA_UI_BOOTSTRAP_SERVERS` |
 | `registry.url` | **required** | `KAFKA_UI_REGISTRY_URL` |
