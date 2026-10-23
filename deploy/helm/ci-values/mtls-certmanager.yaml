@@ -9,6 +9,10 @@ registry:
 tls:
   ca:
     existingSecret: ca-bundle
+kafkaUser:
+  enabled: true
+  cluster: my-cluster
+  namespace: kafka
 certManager:
   enabled: true
   issuerRef:

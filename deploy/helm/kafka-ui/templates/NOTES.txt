@@ -5,6 +5,15 @@ WARNING: mTLS mode is for TEST ENVIRONMENTS ONLY. There is no login: everyone wh
 the UI gets the rights of the UI's own client certificate, including produce and reset offsets.
 Use mode=oidc in production.
 {{- end }}
+{{- if and .Values.kafkaUser.enabled (eq .Values.mode "mtls") }}
+
+KafkaUser {{ include "kafka-ui.kafkaUserName" . }} created in namespace {{ default .Release.Namespace .Values.kafkaUser.namespace }} (tls-external,
+cluster {{ .Values.kafkaUser.cluster }}). Check that the Kafka listener trusts the CA that issued the UI's certificate.
+{{- end }}
+{{- if and .Values.kafkaUser.enabled (ne .Values.mode "mtls") }}
+
+Note: kafkaUser.enabled is ignored in oidc mode (each user's own Kafka permissions apply).
+{{- end }}
 {{- if and .Values.certManager.enabled (ne .Values.mode "mtls") }}
 
 Note: certManager.enabled is ignored in oidc mode (no client certificate is used).

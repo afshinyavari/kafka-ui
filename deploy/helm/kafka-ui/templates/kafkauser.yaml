@@ -1,0 +1,46 @@
+{{- if and .Values.kafkaUser.enabled (eq .Values.mode "mtls") }}
+{{- $name := include "kafka-ui.kafkaUserName" . }}
+{{- $ku := .Values.kafkaUser }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: {{ $name }}
+  {{- with $ku.namespace }}
+  namespace: {{ . }}
+  {{- end }}
+  labels:
+    strimzi.io/cluster: {{ required "kafkaUser.cluster is required when kafkaUser.enabled (name of the Strimzi Kafka cluster)" $ku.cluster | quote }}
+    {{- include "kafka-ui.labels" . | nindent 4 }}
+spec:
+  authentication:
+    # The certificate comes from cert-manager or tls.client.existingSecret; the user name is its CN.
+    type: tls-external
+  authorization:
+    type: simple
+    acls:
+      {{- with $ku.acls.cluster }}
+      - resource:
+          type: cluster
+        operations: {{ toJson . }}
+        host: "*"
+      {{- end }}
+      {{- with $ku.acls.topics.operations }}
+      - resource:
+          type: topic
+          name: {{ $ku.acls.topics.name | quote }}
+          patternType: {{ $ku.acls.topics.patternType }}
+        operations: {{ toJson . }}
+        host: "*"
+      {{- end }}
+      {{- with $ku.acls.groups.operations }}
+      - resource:
+          type: group
+          name: {{ $ku.acls.groups.name | quote }}
+          patternType: {{ $ku.acls.groups.patternType }}
+        operations: {{ toJson . }}
+        host: "*"
+      {{- end }}
+      {{- with $ku.extraAcls }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}

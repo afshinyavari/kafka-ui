@@ -61,6 +61,18 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 {{- end }}
 
+{{/*
+Name of the KafkaUser. Strimzi's tls-external user name is the certificate's CN, so it defaults to
+certManager.commonName and must match it when the chart issues the certificate.
+*/}}
+{{- define "kafka-ui.kafkaUserName" -}}
+{{- $name := default .Values.certManager.commonName .Values.kafkaUser.name -}}
+{{- if and .Values.certManager.enabled (ne $name .Values.certManager.commonName) -}}
+{{- fail (printf "kafkaUser.name (%s) must equal certManager.commonName (%s): Strimzi takes the user name from the certificate's CN" $name .Values.certManager.commonName) -}}
+{{- end -}}
+{{- $name -}}
+{{- end }}
+
 {{/* Validation shared by all templates; included once from the ConfigMap. */}}
 {{- define "kafka-ui.validate" -}}
 {{- if not (has .Values.mode (list "oidc" "mtls")) }}{{ fail "mode must be oidc or mtls" }}{{ end }}
