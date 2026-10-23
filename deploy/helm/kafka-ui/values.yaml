@@ -44,6 +44,33 @@ tls:
     # -- Key of the private key, must be PKCS#8 (KAFKA_UI_TLS_KEY_FILE).
     keyKey: tls.key
 
+# Strimzi KafkaUser with the ACLs the UI needs (mtls mode only; ignored in oidc mode, where every user's own
+# Kafka permissions apply). Authentication is tls-external: the certificate comes from certManager or
+# tls.client.existingSecret, and Strimzi maps it to the user whose name is the certificate's CN.
+kafkaUser:
+  enabled: false
+  # -- REQUIRED when enabled. Name of the Strimzi Kafka cluster (label strimzi.io/cluster).
+  cluster: ""
+  # -- The certificate's CN. Defaults to certManager.commonName (and must equal it when certManager.enabled).
+  name: ""
+  # -- Namespace the Strimzi User Operator watches, usually the Kafka cluster's. Defaults to the release namespace.
+  namespace: ""
+  acls:
+    # -- Cluster: overview, brokers and their configs, the ACL list.
+    cluster: [Describe, DescribeConfigs]
+    # -- Topics: list, settings, read/search/tail, and produce (drop Write for a read-only UI).
+    topics:
+      name: "*"
+      patternType: literal
+      operations: [Describe, DescribeConfigs, Read, Write]
+    # -- Consumer groups: list, offsets and lag, and reset offsets (Read).
+    groups:
+      name: "*"
+      patternType: literal
+      operations: [Describe, Read]
+  # -- More Strimzi ACL rules, appended as they are.
+  extraAcls: []
+
 # cert-manager issued client certificate (mtls mode only; ignored in oidc mode).
 certManager:
   # -- Create a cert-manager Certificate; its secret (tls.crt/tls.key) is used as the client secret.

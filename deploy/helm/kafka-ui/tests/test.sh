@@ -199,6 +199,29 @@ render extiss "$CI/mtls-certmanager.yaml" --set certManager.issuerRef.kind=AWSPC
 render nogroup "$CI/mtls-certmanager.yaml" --set certManager.issuerRef.group= && \
   eq "empty group is omitted" nogroup Certificate '.spec.issuerRef | has("group")' "false"
 
+echo "== kafkaUser"
+render ku "$CI/mtls-certmanager.yaml" && {
+  eq "KafkaUser name is the cert CN" ku KafkaUser '.metadata.name' "kafka-ui"
+  eq "KafkaUser namespace" ku KafkaUser '.metadata.namespace' "kafka"
+  eq "strimzi.io/cluster label" ku KafkaUser '.metadata.labels["strimzi.io/cluster"]' "my-cluster"
+  eq "tls-external" ku KafkaUser '.spec.authentication.type' "tls-external"
+  eq "cluster ACL" ku KafkaUser '.spec.authorization.acls[] | select(.resource.type=="cluster") | .operations | join(",")' "Describe,DescribeConfigs"
+  eq "topic ACL" ku KafkaUser '.spec.authorization.acls[] | select(.resource.type=="topic") | .resource.name + " " + .resource.patternType + " " + (.operations | join(","))' "* literal Describe,DescribeConfigs,Read,Write"
+  eq "group ACL" ku KafkaUser '.spec.authorization.acls[] | select(.resource.type=="group") | .operations | join(",")' "Describe,Read"
+}
+render kuro "$CI/mtls-certmanager.yaml" --set 'kafkaUser.acls.topics.operations={Describe,DescribeConfigs,Read}' \
+    --set 'kafkaUser.extraAcls[0].resource.type=transactionalId' --set 'kafkaUser.extraAcls[0].resource.name=x' --set 'kafkaUser.extraAcls[0].operations={Describe}' && {
+  eq "read-only topics" kuro KafkaUser '.spec.authorization.acls[] | select(.resource.type=="topic") | .operations | join(",")' "Describe,DescribeConfigs,Read"
+  eq "extra ACL appended" kuro KafkaUser '.spec.authorization.acls[-1].resource.type' "transactionalId"
+}
+render kuns "$CI/mtls-existing-secret.yaml" --set kafkaUser.enabled=true --set kafkaUser.cluster=c --set kafkaUser.name=my-ui && {
+  eq "existing secret: explicit name" kuns KafkaUser '.metadata.name' "my-ui"
+  eq "default namespace omitted" kuns KafkaUser '.metadata.namespace' "null"
+}
+render kuoidc "$CI/oidc.yaml" --set kafkaUser.enabled=true --set kafkaUser.cluster=c && hasnt "no KafkaUser in oidc mode" kuoidc 'kind: KafkaUser'
+fails "kafkaUser without cluster" 'kafkaUser\.cluster is required' -f "$CI/mtls-certmanager.yaml" --set kafkaUser.cluster=
+fails "kafkaUser name must match the CN" 'must equal certManager\.commonName' -f "$CI/mtls-certmanager.yaml" --set kafkaUser.name=other
+
 echo "== failure messages"
 fails "empty image.repository" 'image\.repository must not be empty' -f "$CI/oidc.yaml" --set image.repository=
 fails "mtls without client secret" 'tls\.client\.existingSecret|certManager\.enabled' -f "$CI/mtls-existing-secret.yaml" --set tls.client.existingSecret=
